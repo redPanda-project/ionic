@@ -14,7 +14,7 @@ class Peer {
   nodeId: string;
   socket: any;
   url: string;
-  retries: number;
+  retries: number = 0;
   connected: number;
   sockets: Sockets;
 
@@ -27,13 +27,15 @@ class Peer {
       console.log("new socketio init for peer: " + this.url);
       this.socket = io(this.url, {
         transports: ["websocket"],
-        reconnectionAttempts: 3
+        reconnectionAttempts: 30
       });
 
       this.socket.on("connect", () => {
         console.log("connection established to: " + this.url);
 
         this.connected = 1;
+        this.retries = 0;
+        this.sockets.activeConnections++;
 
         this.socket.emit("getPeers", { count: 10 }, (answer: any) => {
           //   console.log("peers: " + JSON.stringify(answer));
@@ -46,9 +48,11 @@ class Peer {
               continue;
             }
 
-            let newPeer = new Peer(p.url, this.sockets);
-            newPeer.setNodeId(p.nodeId);
-            this.sockets.peers.set(p.nodeId, newPeer);
+            this.sockets.addPeer(p.nodeId, p.url);
+
+            // let newPeer = new Peer(p.url, this.sockets);
+            // newPeer.setNodeId(p.nodeId);
+            // this.sockets.peers.set(p.nodeId, newPeer);
           }
 
           //   console.log("peers: " + typeof { asd: 5 });
@@ -58,10 +62,12 @@ class Peer {
       this.socket.on("disconnect", () => {
         console.log("disconnected: " + this.url);
         this.connected = 0;
+        this.sockets.activeConnections--;
       });
 
       this.socket.on("reconnect_attempt", () => {
-        console.log("reconnecting...");
+        //console.log("reconnecting...");
+        this.retries++;
       });
     }
   }
@@ -70,6 +76,7 @@ class Peer {
 @Injectable()
 export class Sockets {
   peers: Map<String, Peer> = new Map<String, Peer>();
+  activeConnections = 0;
   //   peerCache: Array<Peer> = new Array();
 
   constructor() {
@@ -77,15 +84,33 @@ export class Sockets {
       this.refresh();
     }, 1000);
   }
+
+  addPeer(nodeId: string, url: string) {
+    let newPeer = new Peer(url, this);
+    newPeer.setNodeId(nodeId);
+    this.peers.set(nodeId, newPeer);
+  }
+
   refresh() {
     // console.log("sockets refresh started...");
 
     if (this.peers.size == 0) {
       console.log("no peers, do bootstrap");
 
-      let newPeer = new Peer("http://localhost:59658", this);
-      newPeer.setNodeId("121D61760D7D526C0AEEEDEADF026FCBF2223604");
-      this.peers.set("121D61760D7D526C0AEEEDEADF026FCBF2223604", newPeer);
+      //   let newPeer = new Peer("http://localhost:59658", this);
+      //   newPeer.setNodeId("121D61760D7D526C0AEEEDEADF026FCBF2223604");
+      //   this.peers.set("121D61760D7D526C0AEEEDEADF026FCBF2223604", newPeer);
+
+        this.addPeer(
+          "073F1BFDEAF8F5295025514A6AB18C77C6652776",
+          "http://redPanda.im:59658"
+        );
+
+    //   this.addPeer(
+    //     "121D61760D7D526C0AEEEDEADF026FCBF2223604",
+    //     "http://localhost:59658"
+    //   );
+
       //   this.peers.push(new Peer("http://localhost:10444"));
       //   this.peers.push(new Peer("http://localhost:10445"));
       //   this.peers.push(new Peer("http://localhost:10446"));
@@ -133,7 +158,15 @@ export class Sockets {
   listNodes() {
     let a = "";
     for (let peer of Array.from(this.peers.values())) {
-      a += peer.url + "      " + peer.nodeId + "<br>\n";
+      a +=
+        (!peer.connected ? '<font color="red">' : '<font color="green">') +
+        peer.nodeId.substring(0, 10) +
+        "</font>" +
+        "      " +
+        +peer.retries +
+        "      " +
+        peer.url +
+        "<br>\n";
     }
     return a;
   }

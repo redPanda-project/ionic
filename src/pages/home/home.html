@@ -6,15 +6,17 @@
 </ion-header>
 
 <ion-content padding>
-  <h3>Ionic Menu Starter</h3>
+  <h3>redPanda 2.0</h3>
 
-  Active Connections: {{ this.sockets.getActiveConnections() }} <br />
+  Active Connections: {{ this.sockets.getActiveConnections() }} {{ this.sockets.activeConnections }} <br />
   <br />
 
-  Active Connections: {{ this.sockets.listNodes() }}
+  Peerlist: (nodeId, retries, url)
 
-  <button ion-button full (click)="joinChatRoom()">
-    Join Chat Room {{ this.sockets.getActiveConnections() }}
+  <div [innerHTML]="this.sockets.listNodes()"></div>
+
+  <button ion-button (click)="joinChatRoom()">
+    Testbutton {{ this.sockets.getActiveConnections() }}
   </button>
 
   <p>
