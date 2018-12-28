@@ -1,8 +1,6 @@
 <ion-header>
   <ion-navbar>
-    <button ion-button menuToggle>
-      <ion-icon name="menu"></ion-icon>
-    </button>
+    <button ion-button menuToggle><ion-icon name="menu"></ion-icon></button>
     <ion-title>Home</ion-title>
   </ion-navbar>
 </ion-header>
@@ -10,8 +8,18 @@
 <ion-content padding>
   <h3>Ionic Menu Starter</h3>
 
+  Active Connections: {{ this.sockets.getActiveConnections() }} <br />
+  <br />
+
+  Active Connections: {{ this.sockets.listNodes() }}
+
+  <button ion-button full (click)="joinChatRoom()">
+    Join Chat Room {{ this.sockets.getActiveConnections() }}
+  </button>
+
   <p>
-    If you get lost, the <a href="http://ionicframework.com/docs/v2">docs</a> will show you the way.
+    If you get lost, the
+    <a href="http://ionicframework.com/docs/v2">docs</a> will show you the way.
   </p>
 
   <button ion-button secondary menuToggle>Toggle Menu</button>

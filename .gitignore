@@ -55,3 +55,7 @@ angular/css/
 core/css/
 core/loader/
 .stencil/
+
+
+.sourcemaps
+www/
