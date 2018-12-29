@@ -8,7 +8,26 @@
 <ion-content padding>
   <h3>redPanda 2.0</h3>
 
-  Active Connections: {{ this.sockets.getActiveConnections() }} {{ this.sockets.activeConnections }} <br />
+  <ion-item-group approxItemHeight="40px">
+    <ion-item-divider color="light">Channels</ion-item-divider>
+    <button *ngFor="let channel of channels" ion-item (click)="channelView(channel)">
+      <!-- <ion-avatar item-start class="animated bounceInLeft"> -->
+      <ion-avatar item-start>
+        <!-- <ion-img [src]="game.enemyPictureURL"></ion-img> -->
+        <!-- <img src="" /> -->
+      </ion-avatar>
+      <!-- <h2 class="animated zoomIn"> -->
+      <b>{{ channel.name }}</b>
+      <!-- </h2>
+      <h3 class="animated bounceInUp">{{game.enemyRank}}</h3>
+      <h1 clear item-end class="animated bounceInRight">{{game.scoreM}}:{{game.scoreE}}</h1> -->
+      <h3>{{ channel.publicKey }}</h3>
+      <h1 clear item-end>--</h1>
+    </button>
+  </ion-item-group>
+
+  Active Connections: {{ this.sockets.getActiveConnections() }}
+  {{ this.sockets.activeConnections }} <br />
   <br />
 
   Peerlist: (nodeId, retries, url)
@@ -25,4 +44,10 @@
   </p>
 
   <button ion-button secondary menuToggle>Toggle Menu</button>
+
+  <ion-fab right bottom>
+    <button ion-fab color="primary" (click)="createNewChannel()">
+      <ion-icon name="add"></ion-icon>
+    </button>
+  </ion-fab>
 </ion-content>

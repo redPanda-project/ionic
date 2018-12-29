@@ -37,7 +37,7 @@ class Peer {
         this.retries = 0;
         this.sockets.activeConnections++;
 
-        this.socket.emit("getPeers", { count: 10 }, (answer: any) => {
+        this.socket.emit("getPeers", { count: 5 }, (answer: any) => {
           //   console.log("peers: " + JSON.stringify(answer));
           console.log("peers got from node: " + answer.length);
 
@@ -73,6 +73,10 @@ class Peer {
   }
 }
 
+import * as bitcoin from "bitcoinjs-lib";
+import * as bs58 from "bs58";
+declare const Buffer;
+
 @Injectable()
 export class Sockets {
   peers: Map<String, Peer> = new Map<String, Peer>();
@@ -83,6 +87,21 @@ export class Sockets {
     setInterval(() => {
       this.refresh();
     }, 1000);
+
+    function rng() {
+      return Buffer.from("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
+    }
+    const keyPair = bitcoin.ECPair.makeRandom({ rng: rng });
+    const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
+    console.log("pubkey: " + address);
+    console.log("pubkey2: " + bs58.encode(keyPair.publicKey));
+    console.log("priv: " + bs58.encode(keyPair.privateKey));
+
+    var decoded = bs58.decode(bs58.encode(keyPair.privateKey));
+
+    console.log(decoded);
+
+    console.log(bs58.encode(decoded));
   }
 
   addPeer(nodeId: string, url: string) {
@@ -101,15 +120,15 @@ export class Sockets {
       //   newPeer.setNodeId("121D61760D7D526C0AEEEDEADF026FCBF2223604");
       //   this.peers.set("121D61760D7D526C0AEEEDEADF026FCBF2223604", newPeer);
 
-        this.addPeer(
-          "073F1BFDEAF8F5295025514A6AB18C77C6652776",
-          "http://redPanda.im:59658"
-        );
+      this.addPeer(
+        "073F1BFDEAF8F5295025514A6AB18C77C6652776",
+        "http://redPanda.im:59658"
+      );
 
-    //   this.addPeer(
-    //     "121D61760D7D526C0AEEEDEADF026FCBF2223604",
-    //     "http://localhost:59658"
-    //   );
+      //   this.addPeer(
+      //     "121D61760D7D526C0AEEEDEADF026FCBF2223604",
+      //     "http://localhost:59658"
+      //   );
 
       //   this.peers.push(new Peer("http://localhost:10444"));
       //   this.peers.push(new Peer("http://localhost:10445"));

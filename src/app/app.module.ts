@@ -10,7 +10,8 @@ import { StatusBar } from "@ionic-native/status-bar";
 import { SplashScreen } from "@ionic-native/splash-screen";
 
 import { SocketIoModule } from "ng-socket-io";
-import { Sockets } from './sockets';
+import { Sockets } from "./sockets";
+import { IonicStorageModule } from "@ionic/storage";
 
 // import { https } from "@angular/common/https";
 // import * as https from 'https';
@@ -47,7 +48,12 @@ import { Sockets } from './sockets';
 
 @NgModule({
   declarations: [MyApp, HomePage, ListPage],
-  imports: [BrowserModule, IonicModule.forRoot(MyApp), SocketIoModule],
+  imports: [
+    BrowserModule,
+    IonicModule.forRoot(MyApp),
+    SocketIoModule,
+    IonicStorageModule.forRoot()
+  ],
   bootstrap: [IonicApp],
   entryComponents: [MyApp, HomePage, ListPage],
   providers: [
