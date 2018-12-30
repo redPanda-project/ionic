@@ -7,14 +7,19 @@
 
 <ion-content padding>
   <h3>redPanda 2.0</h3>
+  hash: {{ encodeKey }}
 
   <ion-item-group approxItemHeight="40px">
     <ion-item-divider color="light">Channels</ion-item-divider>
-    <button *ngFor="let channel of channels" ion-item (click)="channelView(channel)">
+    <button
+      *ngFor="let channel of channels"
+      ion-item
+      (click)="openChat(channel)"
+    >
       <!-- <ion-avatar item-start class="animated bounceInLeft"> -->
       <ion-avatar item-start>
         <!-- <ion-img [src]="game.enemyPictureURL"></ion-img> -->
-        <!-- <img src="" /> -->
+        <img src="./assets/user.jpg" />
       </ion-avatar>
       <!-- <h2 class="animated zoomIn"> -->
       <b>{{ channel.name }}</b>

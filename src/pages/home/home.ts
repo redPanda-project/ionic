@@ -1,3 +1,4 @@
+import { ChatPage } from "./../chat/chat";
 import { Component } from "@angular/core";
 import { NavController } from "ionic-angular";
 import { Sockets } from "../../app/sockets";
@@ -16,6 +17,7 @@ export class HomePage {
   channels = [];
   sockets: Sockets;
   nickname = "";
+  encodeKey = "empty";
   // alertCtrl:AlertController;
   constructor(
     public navCtrl: NavController,
@@ -32,19 +34,31 @@ export class HomePage {
 
       this.channels = JSON.parse(val);
     });
+
+    // this.encodeKey = bs58.encode(
+    //   crypto
+    //     .createHash("sha256")
+    //     .update("jeeees", "utf-8")
+    //     .digest()
+    // );
   }
 
-  joinChatRoom() {
+  openChat(channel: any) {
     // require('https').globalAgent.options.rejectUnauthorized = false;
 
-    let socket = this.sockets.getAConnectedSocket();
+    // let socket = this.sockets.getAConnectedSocket();
 
     // this.socket.connect();
-    socket.emit("set-nickname", {
-      userName: this.nickname,
-      message: "teeest"
-    });
+    // socket.emit("set-nickname", {
+    //   userName: this.nickname,
+    //   message: "teeest"
+    // });
     // this.navCtrl.push("ChattingPage", { nickname: this.nickname });
+
+    this.navCtrl.push(ChatPage, {
+      toUserId: "210000198410281948",
+      toUserName: channel.name
+    });
   }
 
   createNewChannel() {
