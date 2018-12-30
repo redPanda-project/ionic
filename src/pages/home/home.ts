@@ -8,6 +8,10 @@ import { Storage } from "@ionic/storage";
 
 import * as bitcoin from "bitcoinjs-lib";
 import * as bs58 from "bs58";
+import { AES256 } from "@ionic-native/aes-256";
+import { AES } from "../../redPanda/crypto";
+
+declare const Buffer;
 
 @Component({
   selector: "page-home",
@@ -23,7 +27,8 @@ export class HomePage {
     public navCtrl: NavController,
     public mSockets: Sockets,
     private alertCtrl: AlertController,
-    private storage: Storage
+    private storage: Storage,
+    private aes256: AES256
   ) {
     this.sockets = mSockets;
 
@@ -41,6 +46,15 @@ export class HomePage {
     //     .update("jeeees", "utf-8")
     //     .digest()
     // );
+
+    // (async () => {
+    //   console.log("getNickAndRank");
+    //   this.encodeKey = await this.aes256.generateSecureKey(
+    //     "random password 12345"
+    //   );
+    // })();
+
+    AES.encode();
   }
 
   openChat(channel: any) {

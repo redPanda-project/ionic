@@ -20,6 +20,8 @@ import { EmojiPickerComponent } from "../components/emoji-picker/emoji-picker";
 import { RelativeTime } from "../pipes/relative-time";
 import { HttpClientModule } from "@angular/common/http";
 
+import { AES256 } from "@ionic-native/aes-256";
+
 // import { https } from "@angular/common/https";
 // import * as https from 'https';
 // https.globalAgent.options.rejectUnauthorized = false;
@@ -77,7 +79,8 @@ import { HttpClientModule } from "@angular/common/http";
     { provide: ErrorHandler, useClass: IonicErrorHandler },
     Sockets,
     EmojiProvider,
-    ChatService
+    ChatService,
+    AES256
   ]
 })
 export class AppModule {}
