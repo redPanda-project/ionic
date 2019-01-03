@@ -21,6 +21,7 @@ import { RelativeTime } from "../pipes/relative-time";
 import { HttpClientModule } from "@angular/common/http";
 
 import { AES256 } from "@ionic-native/aes-256";
+import { File } from "@ionic-native/file";
 
 // import { https } from "@angular/common/https";
 // import * as https from 'https';
@@ -80,7 +81,8 @@ import { AES256 } from "@ionic-native/aes-256";
     Sockets,
     EmojiProvider,
     ChatService,
-    AES256
+    AES256,
+    File
   ]
 })
 export class AppModule {}
