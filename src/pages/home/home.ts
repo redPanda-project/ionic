@@ -61,6 +61,12 @@ export class HomePage {
     // Verify signature
     console.log(key.verify(msgHash, derSign));
 
+    key = EC.keyFromPublic(
+      bs58.decode("evkUMf9Zr6LgCeJgxH2DYGT37GY8VaCHP3vhh3wRHGYS")
+    );
+    var pubPoint = key.getPublic();
+    console.log(pubPoint.encode("base"));
+
     storage.get("channels").then(val => {
       if (val == undefined) {
         return;
@@ -193,10 +199,6 @@ export class HomePage {
   testButton() {
     let socket = this.sockets.getAConnectedSocket();
 
-    // setInterval(() => {
-    //   console.log(socket);
-    // }, 500);
-
     console.log("get android apk");
     socket.emit("getAndroid.apk", {}, (answer: any) => {
       //   console.log("peers: " + JSON.stringify(answer));
@@ -244,6 +246,8 @@ export class HomePage {
         " MB, verified: " +
         verified;
 
+        // this.storage.set("updateTime", answer.timestamp);
+
       //we can now store the update!
       if (verified && this.platform.is("cordova")) {
         (async () => {
@@ -277,6 +281,8 @@ export class HomePage {
             this.file.dataDirectory + "redPanda.apk",
             "application/vnd.android.package-archive"
           );
+
+          this.storage.set("updateTime", answer.timestamp);
 
           //end of async!
         })();

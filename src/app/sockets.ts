@@ -72,7 +72,7 @@ class Peer {
         this.retries = 0;
         sockets.activeConnections++;
 
-        this.socket.emit("getPeers", { count: 5 }, (answer: any) => {
+        this.socket.emit("getPeers", { count: 1 }, (answer: any) => {
           //   console.log("peers: " + JSON.stringify(answer));
           // console.log("peers got from node: " + answer.length);
 
@@ -92,6 +92,19 @@ class Peer {
 
           //   console.log("peers: " + typeof { asd: 5 });
         });
+
+        this.socket.emit("getAndroidTimestamp", (answer: any) => {
+          (async () => {
+            if (Global.updateTimestamp == 0) {
+              Global.updateTimestamp = await sockets.storage.get("updateTime");
+            }
+            // console.log(Global.updateTimestamp);
+            // console.log(answer.timestamp);
+            if (Global.updateTimestamp < answer.timestamp) {
+              Global.updateAvailable = true;
+            }
+          })();
+        });
       });
 
       this.socket.on("disconnect", () => {
@@ -103,6 +116,9 @@ class Peer {
       this.socket.on("reconnect_attempt", () => {
         //console.log("reconnecting...");
         this.retries++;
+        if (this.retries == 30) {
+          sockets.removePeer(this);
+        }
       });
     }
   }
@@ -119,13 +135,19 @@ export class Sockets {
     this.storage = storage;
 
     storage.get("peers").then(val => {
+      // console.log(JSON.parse(val));
       if (val != undefined) {
-        // this.peers = JSON.parse(val);
+        for (let p of JSON.parse(val)) {
+          let newPeer = new Peer(p.url);
+          newPeer.setNodeId(p.nodeId);
+          this.peers.set(p.nodeId, newPeer);
+        }
       }
       //start refreshing after we loaded the peers
+      this.refresh();
       setInterval(() => {
         this.refresh();
-      }, 1000);
+      }, 5000);
     });
 
     function rng() {
@@ -148,7 +170,8 @@ export class Sockets {
     let newPeer = new Peer(url);
     newPeer.setNodeId(nodeId);
     this.peers.set(nodeId, newPeer);
-    this.storage.set("peers", JSON.stringify(this.peers));
+
+    this.savePeers();
   }
 
   refresh() {
@@ -161,8 +184,8 @@ export class Sockets {
       //   newPeer.setNodeId("121D61760D7D526C0AEEEDEADF026FCBF2223604");
       //   this.peers.set("121D61760D7D526C0AEEEDEADF026FCBF2223604", newPeer);
 
-      this.addPeer("39YVqMP9rCwWDYken7vQsacXcydf", "http://localhost:59658");
-      this.addPeer("2pyTmK7nutBbbLQtLYUZVEmFGkMz", "http://redPanda.im:59658");
+      // this.addPeer("39YVqMP9rCwWDYken7vQsacXcydf", "http://localhost:59658");
+      this.addPeer("3kLHUQBUQWFYsr83KZ8GkYJb4fc2", "http://redPanda.im:59658");
 
       //   this.addPeer(
       //     "121D61760D7D526C0AEEEDEADF026FCBF2223604",
@@ -263,4 +286,20 @@ export class Sockets {
   // jsonToStrMap(jsonStr) {
   //   return this.objToStrMap(JSON.parse(jsonStr));
   // }
+
+  savePeers() {
+    let savePeers = [];
+    for (let p of Array.from(this.peers.values())) {
+      let np = new Peer(p.url);
+      np.setNodeId(p.nodeId);
+      savePeers.push(np);
+    }
+
+    this.storage.set("peers", JSON.stringify(savePeers));
+  }
+
+  removePeer(peer: Peer) {
+    this.peers.delete(peer.nodeId);
+    this.savePeers();
+  }
 }

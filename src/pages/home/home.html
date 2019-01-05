@@ -11,6 +11,9 @@
   </div>
   Active Connections: {{ this.sockets.activeConnections }}
   {{ Global.downloadedText }} {{ infoText }} <br />
+  <button *ngIf="Global.updateAvailable" ion-button (click)="testButton()">
+    Update Available
+  </button>
 
   <ion-item-group approxItemHeight="40px">
     <!-- <ion-item-divider color="light">Channels</ion-item-divider> -->
