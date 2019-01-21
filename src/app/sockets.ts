@@ -1,10 +1,15 @@
+import { Storage } from "@ionic/storage";
 import { Injectable } from "@angular/core";
 import * as io from "socket.io-client";
 
+import * as bitcoin from "bitcoinjs-lib";
+import * as bs58 from "bs58";
+import { Global } from "./Global";
+declare const Buffer;
+
 class Peer {
-  constructor(url: string, sockets: Sockets) {
+  constructor(url: string) {
     this.url = url;
-    this.sockets = sockets;
   }
 
   setNodeId(nodeId: string) {
@@ -16,39 +21,74 @@ class Peer {
   url: string;
   retries: number = 0;
   connected: number;
-  sockets: Sockets;
+  receivedBytes = 0;
 
   getSocket(): any {
     return this.socket;
   }
 
-  connect() {
+  connect(sockets: Sockets) {
+    //localStorage.debug = "*";
+    localStorage.debug = "";
+
     if (this.socket == undefined) {
-      console.log("new socketio init for peer: " + this.url);
+      // console.log("new socketio init for peer: " + this.url);
       this.socket = io(this.url, {
         transports: ["websocket"],
         reconnectionAttempts: 30
       });
 
       this.socket.on("connect", () => {
+        // console.log(this.socket.io.engine.transport.ws);
+        // let self = this.socket.io.engine.transport.ws;
+        // this.socket.io.engine.transport.ws.onmessage = function(event) {
+        //   console.log("WebSocket message received:", event);
+        //   self.onData(event.data);
+        // };
+
+        console.log(new WebSocket("ws://redpanda.im"));
+
+        // setInterval(() => {
+        //   console.log(this.socket.io.engine.transport.ws.bufferedAmount);
+        // }, 1000);
+
+        this.socket.io.engine.transport.on("packet", function(packet) {
+          // console.log(typeof packet.data);
+
+          if (typeof packet.data === "string") {
+            // console.log(
+            //   "stringlen: " + new TextEncoder().encode(packet.data).length
+            // );
+            Global.bytesDownloaded += packet.data.length;
+          } else if (packet.data instanceof ArrayBuffer) {
+            // console.log("arrayLen: " + packet.data.byteLength);
+            Global.bytesDownloaded += packet.data.byteLength;
+          }
+
+          Global.downloadedText =
+            "DL: " + (Global.bytesDownloaded / 1024).toFixed(1) + " kb.";
+
+          // Global.bytesDownloaded += packet.byteLength;
+        });
+
         console.log("connection established to: " + this.url);
 
         this.connected = 1;
         this.retries = 0;
-        this.sockets.activeConnections++;
+        sockets.activeConnections++;
 
-        this.socket.emit("getPeers", { count: 5 }, (answer: any) => {
+        this.socket.emit("getPeers", { count: 1 }, (answer: any) => {
           //   console.log("peers: " + JSON.stringify(answer));
-          console.log("peers got from node: " + answer.length);
+          // console.log("peers got from node: " + answer.length);
 
           for (let p of answer) {
             // console.log("has?: " + p.nodeId);
-            if (this.sockets.peers.has(p.nodeId)) {
-              console.log("already in peerlist");
+            if (sockets.peers.has(p.nodeId)) {
+              // console.log("already in peerlist");
               continue;
             }
 
-            this.sockets.addPeer(p.nodeId, p.url);
+            sockets.addPeer(p.nodeId, p.url);
 
             // let newPeer = new Peer(p.url, this.sockets);
             // newPeer.setNodeId(p.nodeId);
@@ -57,73 +97,109 @@ class Peer {
 
           //   console.log("peers: " + typeof { asd: 5 });
         });
+
+        this.socket.emit("getAndroidTimestamp", (answer: any) => {
+          (async () => {
+            if (Global.updateTimestamp == 0) {
+              Global.updateTimestamp = await sockets.storage.get("updateTime");
+            }
+            // console.log(Global.updateTimestamp);
+            // console.log(answer.timestamp);
+            if (Global.updateTimestamp < answer.timestamp) {
+              Global.updateAvailable = true;
+            }
+          })();
+        });
       });
 
       this.socket.on("disconnect", () => {
         console.log("disconnected: " + this.url);
         this.connected = 0;
-        this.sockets.activeConnections--;
+        sockets.activeConnections--;
       });
 
       this.socket.on("reconnect_attempt", () => {
         //console.log("reconnecting...");
         this.retries++;
+        if (this.retries == 30) {
+          sockets.removePeer(this);
+        }
       });
     }
   }
 }
 
-import * as bitcoin from "bitcoinjs-lib";
-import * as bs58 from "bs58";
-declare const Buffer;
-
 @Injectable()
 export class Sockets {
   peers: Map<String, Peer> = new Map<String, Peer>();
   activeConnections = 0;
+  storage: Storage;
   //   peerCache: Array<Peer> = new Array();
 
-  constructor() {
-    setInterval(() => {
+  constructor(storage: Storage) {
+    this.storage = storage;
+
+
+
+    let so = new WebSocket("ws://localhost:59658");
+
+    so.onopen = function(event) {
+      console.log("connecteradasdasd!");
+      so.send("Here's some text that the server is urgently awaiting!");
+    };
+
+    storage.get("peers").then(val => {
+      // console.log(JSON.parse(val));
+      if (val != undefined) {
+        for (let p of JSON.parse(val)) {
+          let newPeer = new Peer(p.url);
+          newPeer.setNodeId(p.nodeId);
+          this.peers.set(p.nodeId, newPeer);
+        }
+      }
+      //start refreshing after we loaded the peers
       this.refresh();
-    }, 1000);
+      setInterval(() => {
+        this.refresh();
+      }, 5000);
+    });
 
     function rng() {
       return Buffer.from("zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz");
     }
     const keyPair = bitcoin.ECPair.makeRandom({ rng: rng });
     const { address } = bitcoin.payments.p2pkh({ pubkey: keyPair.publicKey });
-    console.log("pubkey: " + address);
-    console.log("pubkey2: " + bs58.encode(keyPair.publicKey));
-    console.log("priv: " + bs58.encode(keyPair.privateKey));
+    // console.log("pubkey: " + address);
+    // console.log("pubkey2: " + bs58.encode(keyPair.publicKey));
+    // console.log("priv: " + bs58.encode(keyPair.privateKey));
 
     var decoded = bs58.decode(bs58.encode(keyPair.privateKey));
 
-    console.log(decoded);
+    // console.log(decoded);
 
-    console.log(bs58.encode(decoded));
+    // console.log(bs58.encode(decoded));
   }
 
   addPeer(nodeId: string, url: string) {
-    let newPeer = new Peer(url, this);
+    let newPeer = new Peer(url);
     newPeer.setNodeId(nodeId);
     this.peers.set(nodeId, newPeer);
+
+    this.savePeers();
   }
 
   refresh() {
     // console.log("sockets refresh started...");
 
     if (this.peers.size == 0) {
-      console.log("no peers, do bootstrap");
+      // console.log("no peers, do bootstrap");
 
       //   let newPeer = new Peer("http://localhost:59658", this);
       //   newPeer.setNodeId("121D61760D7D526C0AEEEDEADF026FCBF2223604");
       //   this.peers.set("121D61760D7D526C0AEEEDEADF026FCBF2223604", newPeer);
 
-      this.addPeer(
-        "073F1BFDEAF8F5295025514A6AB18C77C6652776",
-        "http://redPanda.im:59658"
-      );
+      // this.addPeer("39YVqMP9rCwWDYken7vQsacXcydf", "http://localhost:59658");
+      this.addPeer("3kLHUQBUQWFYsr83KZ8GkYJb4fc2", "http://redPanda.im:59658");
 
       //   this.addPeer(
       //     "121D61760D7D526C0AEEEDEADF026FCBF2223604",
@@ -140,12 +216,14 @@ export class Sockets {
     //     let peer = entry[1];
     // }
 
-    // for (let key of Array.from(this.peers.values())) {
-    //   console.log(key);
+    // for (let p of Array.from(this.peers.values())) {
+    //   console.log(p.getSocket());
     // }
 
+    // console.log(JSON.stringify(this.peers.values()));
+
     for (let peer of Array.from(this.peers.values())) {
-      peer.connect();
+      peer.connect(this);
       //   peer.getSocket().emit("set-nickname", {
       //     userName: "nick",
       //     message: "teeest"
@@ -175,6 +253,8 @@ export class Sockets {
   }
 
   listNodes() {
+    // console.log("asdf" + JSON.stringify(Array.from(this.peers.values())));
+
     let a = "";
     for (let peer of Array.from(this.peers.values())) {
       a +=
@@ -192,5 +272,48 @@ export class Sockets {
 
   greet() {
     return "Hello, ";
+  }
+
+  // strMapToObj(strMap) {
+  //   let obj = Object.create(null);
+  //   console.log("jup");
+  //   for (let peer of Array.from(this.peers.values())) {
+  //     // We don’t escape the key '__proto__'
+  //     // which can cause problems on older engines
+  //     console.log(peer);
+  //     console.log("asdfdwewe");
+  //     obj[peer.nodeId] = peer;
+  //   }
+  //   console.log("jup2");
+  //   return obj;
+  // }
+  // objToStrMap(obj) {
+  //   let strMap = new Map();
+  //   for (let k of Object.keys(obj)) {
+  //     strMap.set(k, obj[k]);
+  //   }
+  //   return strMap;
+  // }
+  // strMapToJson(strMap) {
+  //   return JSON.stringify(this.strMapToObj(strMap));
+  // }
+  // jsonToStrMap(jsonStr) {
+  //   return this.objToStrMap(JSON.parse(jsonStr));
+  // }
+
+  savePeers() {
+    let savePeers = [];
+    for (let p of Array.from(this.peers.values())) {
+      let np = new Peer(p.url);
+      np.setNodeId(p.nodeId);
+      savePeers.push(np);
+    }
+
+    this.storage.set("peers", JSON.stringify(savePeers));
+  }
+
+  removePeer(peer: Peer) {
+    this.peers.delete(peer.nodeId);
+    this.savePeers();
   }
 }

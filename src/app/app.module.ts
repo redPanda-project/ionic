@@ -5,6 +5,7 @@ import { IonicApp, IonicErrorHandler, IonicModule } from "ionic-angular";
 import { MyApp } from "./app.component";
 import { HomePage } from "../pages/home/home";
 import { ListPage } from "../pages/list/list";
+import { ChatPage } from "../pages/chat/chat";
 
 import { StatusBar } from "@ionic-native/status-bar";
 import { SplashScreen } from "@ionic-native/splash-screen";
@@ -12,6 +13,15 @@ import { SplashScreen } from "@ionic-native/splash-screen";
 import { SocketIoModule } from "ng-socket-io";
 import { Sockets } from "./sockets";
 import { IonicStorageModule } from "@ionic/storage";
+
+import { EmojiProvider } from "../providers/emoji";
+import { ChatService } from "../providers/chat-service";
+import { EmojiPickerComponent } from "../components/emoji-picker/emoji-picker";
+import { RelativeTime } from "../pipes/relative-time";
+import { HttpClientModule } from "@angular/common/http";
+
+import { AES256 } from "@ionic-native/aes-256";
+import { File } from "@ionic-native/file";
 
 // import { https } from "@angular/common/https";
 // import * as https from 'https';
@@ -47,20 +57,32 @@ import { IonicStorageModule } from "@ionic/storage";
 // }
 
 @NgModule({
-  declarations: [MyApp, HomePage, ListPage],
+  declarations: [
+    MyApp,
+    HomePage,
+    ListPage,
+    ChatPage,
+    RelativeTime,
+    EmojiPickerComponent
+  ],
   imports: [
     BrowserModule,
     IonicModule.forRoot(MyApp),
     SocketIoModule,
-    IonicStorageModule.forRoot()
+    IonicStorageModule.forRoot(),
+    HttpClientModule
   ],
   bootstrap: [IonicApp],
-  entryComponents: [MyApp, HomePage, ListPage],
+  entryComponents: [MyApp, HomePage, ListPage, ChatPage, EmojiPickerComponent],
   providers: [
     StatusBar,
     SplashScreen,
     { provide: ErrorHandler, useClass: IonicErrorHandler },
-    Sockets
+    Sockets,
+    EmojiProvider,
+    ChatService,
+    AES256,
+    File
   ]
 })
 export class AppModule {}
