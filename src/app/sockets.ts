@@ -28,6 +28,9 @@ class Peer {
   }
 
   connect(sockets: Sockets) {
+    //localStorage.debug = "*";
+    localStorage.debug = "";
+
     if (this.socket == undefined) {
       // console.log("new socketio init for peer: " + this.url);
       this.socket = io(this.url, {
@@ -42,6 +45,8 @@ class Peer {
         //   console.log("WebSocket message received:", event);
         //   self.onData(event.data);
         // };
+
+        console.log(new WebSocket("ws://redpanda.im"));
 
         // setInterval(() => {
         //   console.log(this.socket.io.engine.transport.ws.bufferedAmount);
@@ -133,6 +138,15 @@ export class Sockets {
 
   constructor(storage: Storage) {
     this.storage = storage;
+
+
+
+    let so = new WebSocket("ws://localhost:59658");
+
+    so.onopen = function(event) {
+      console.log("connecteradasdasd!");
+      so.send("Here's some text that the server is urgently awaiting!");
+    };
 
     storage.get("peers").then(val => {
       // console.log(JSON.parse(val));
