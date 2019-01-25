@@ -15,11 +15,9 @@ import { HttpClient } from "@angular/common/http";
 import { sha256 } from "js-sha256";
 import * as ByteBuffer from "bytebuffer";
 import { Global } from "../../app/Global";
-import { Service } from '../../app/service';
-
+import { Service } from "../../app/service";
 
 import { ec } from "elliptic";
-
 
 // Create and initialize EC context
 // (better do it once and reuse it)
@@ -50,6 +48,11 @@ export class HomePage {
     private file: File,
     private platform: Platform
   ) {
+    if (this.platform.is("cordova")) {
+      Service.init2(this.platform, cordova);
+    } else {
+      Service.init2(this.platform, undefined);
+    }
 
     var key = EC.genKeyPair();
     // Sign the message's hash (input must be an array, or a hex-string)
@@ -66,7 +69,7 @@ export class HomePage {
       bs58.decode("evkUMf9Zr6LgCeJgxH2DYGT37GY8VaCHP3vhh3wRHGYS")
     );
     var pubPoint = key.getPublic();
-    console.log(pubPoint.encode("base"));
+    // console.log(pubPoint.encode("base"));
 
     storage.get("channels").then(val => {
       if (val == undefined) {
@@ -198,98 +201,102 @@ export class HomePage {
   }
 
   testButton() {
-    let socket = Service.getAConnectedSocket();
+    Service.downloadUpdate();
+    //     let ws = Service.getAConnectedSocket();
 
-    console.log("get android apk");
-    socket.emit("getAndroid.apk", {}, (answer: any) => {
-      //   console.log("peers: " + JSON.stringify(answer));
-      console.log("androidapk got from node: " + answer.data);
-      console.log(
-        "androidapk signature from node: " + Buffer.from(answer.signature)
-      );
-      console.log("signature len: " + answer.signature.byteLength);
+    //     console.log("get android apk");
 
-      let arrayBuffer: ArrayBuffer = answer.data;
+    // ws.send
 
-      this.downloaded = arrayBuffer.byteLength;
+    //     ws.emit("getAndroid.apk", {}, (answer: any) => {
+    //       //   console.log("peers: " + JSON.stringify(answer));
+    //       console.log("androidapk got from node: " + answer.data);
+    //       console.log(
+    //         "androidapk signature from node: " + Buffer.from(answer.signature)
+    //       );
+    //       console.log("signature len: " + answer.signature.byteLength);
 
-      this.infoText =
-        "Update size: " + (this.downloaded / 1024 / 1024).toFixed(1) + " MB";
+    //       let arrayBuffer: ArrayBuffer = answer.data;
 
-      //we have to check the signature of the apk!
+    //       this.downloaded = arrayBuffer.byteLength;
 
-      // bitcoin.ECPair
-      let updateKey = bitcoin.ECPair.fromPublicKey(
-        bs58.decode("evkUMf9Zr6LgCeJgxH2DYGT37GY8VaCHP3vhh3wRHGYS")
-      );
+    //       this.infoText =
+    //         "Update size: " + (this.downloaded / 1024 / 1024).toFixed(1) + " MB";
 
-      console.log("timestamp: " + answer.timestamp);
+    //       //we have to check the signature of the apk!
 
-      let hashing = sha256.create();
+    //       // bitcoin.ECPair
+    //       let updateKey = bitcoin.ECPair.fromPublicKey(
+    //         bs58.decode("evkUMf9Zr6LgCeJgxH2DYGT37GY8VaCHP3vhh3wRHGYS")
+    //       );
 
-      let b = new ByteBuffer();
-      b.writeInt64(answer.timestamp);
-      b.append(arrayBuffer);
+    //       console.log("timestamp: " + answer.timestamp);
 
-      b.flip();
+    //       let hashing = sha256.create();
 
-      // hashing.update(answer.timestamp);
-      hashing.update(b.toArrayBuffer());
+    //       let b = new ByteBuffer();
+    //       b.writeInt64(answer.timestamp);
+    //       b.append(arrayBuffer);
 
-      let verified = updateKey.verify(
-        Buffer.from(hashing.array()),
-        Buffer.from(answer.signature)
-      );
+    //       b.flip();
 
-      this.infoText =
-        "Update size: " +
-        (this.downloaded / 1024 / 1024).toFixed(1) +
-        " MB, verified: " +
-        verified;
+    //       // hashing.update(answer.timestamp);
+    //       hashing.update(b.toArrayBuffer());
 
-        // this.storage.set("updateTime", answer.timestamp);
+    //       let verified = updateKey.verify(
+    //         Buffer.from(hashing.array()),
+    //         Buffer.from(answer.signature)
+    //       );
 
-      //we can now store the update!
-      if (verified && this.platform.is("cordova")) {
-        (async () => {
-          this.infoText += " installing...";
-          try {
-            let exists = await this.file.checkFile(
-              this.file.dataDirectory,
-              "redPanda.apk"
-            );
+    //       this.infoText =
+    //         "Update size: " +
+    //         (this.downloaded / 1024 / 1024).toFixed(1) +
+    //         " MB, verified: " +
+    //         verified;
 
-            if (exists) {
-              await this.file.removeFile(
-                this.file.dataDirectory,
-                "redPanda.apk"
-              );
-            }
-          } catch (e) {
-            //file does not exists?
-          }
+    //         // this.storage.set("updateTime", answer.timestamp);
 
-          await this.file.writeFile(
-            this.file.dataDirectory,
-            "redPanda.apk",
-            arrayBuffer
-          );
+    //       //we can now store the update!
+    //       if (verified && this.platform.is("cordova")) {
+    //         (async () => {
+    //           this.infoText += " installing...";
+    //           try {
+    //             let exists = await this.file.checkFile(
+    //               this.file.dataDirectory,
+    //               "redPanda.apk"
+    //             );
 
-          // let files = await this.file.listDir(this.file.dataDirectory, "");
-          // this.infoText = this.file.dataDirectory + "redPanda.apk";
+    //             if (exists) {
+    //               await this.file.removeFile(
+    //                 this.file.dataDirectory,
+    //                 "redPanda.apk"
+    //               );
+    //             }
+    //           } catch (e) {
+    //             //file does not exists?
+    //           }
 
-          cordova.plugins.fileOpener2.open(
-            this.file.dataDirectory + "redPanda.apk",
-            "application/vnd.android.package-archive"
-          );
+    //           await this.file.writeFile(
+    //             this.file.dataDirectory,
+    //             "redPanda.apk",
+    //             arrayBuffer
+    //           );
 
-          this.storage.set("updateTime", answer.timestamp);
+    //           // let files = await this.file.listDir(this.file.dataDirectory, "");
+    //           // this.infoText = this.file.dataDirectory + "redPanda.apk";
 
-          //end of async!
-        })();
-      }
+    //           cordova.plugins.fileOpener2.open(
+    //             this.file.dataDirectory + "redPanda.apk",
+    //             "application/vnd.android.package-archive"
+    //           );
 
-      //   console.log("peers: " + typeof { asd: 5 });
-    });
+    //           this.storage.set("updateTime", answer.timestamp);
+
+    //           //end of async!
+    //         })();
+    //       }
+
+    //       //   console.log("peers: " + typeof { asd: 5 });
+    //     });
   }
 }
