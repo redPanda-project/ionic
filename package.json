@@ -26,6 +26,7 @@
     "@ionic-native/splash-screen": "~4.18.0",
     "@ionic-native/status-bar": "~4.18.0",
     "@ionic/storage": "^2.2.0",
+    "@types/bytebuffer": "^5.0.39",
     "aes-cross": "^1.0.9",
     "bitcoinjs-lib": "^4.0.2",
     "bytebuffer": "^5.0.1",
@@ -46,9 +47,7 @@
     "ionicons": "3.0.0",
     "js-sha256": "^0.9.0",
     "long": "^4.0.0",
-    "ng-socket-io": "^0.2.4",
     "rxjs": "5.5.11",
-    "socket.io-client": "^2.2.0",
     "sw-toolbox": "3.6.0",
     "zone.js": "0.8.26"
   },

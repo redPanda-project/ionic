@@ -9,7 +9,7 @@
   <div class="meter green nostripes">
     <span [style.width]="progress()"></span>
   </div>
-  Active Connections: {{ this.sockets.activeConnections }}
+  Active Connections: {{ Service.activeConnections }}
   {{ Global.downloadedText }} {{ infoText }} <br />
   <button *ngIf="Global.updateAvailable" ion-button (click)="testButton()">
     Update Available
@@ -43,7 +43,7 @@
   <div padding>
     Peerlist: (nodeId, retries, url)
 
-    <div [innerHTML]="this.sockets.listNodes()"></div>
+    <div [innerHTML]="Service.listNodes()"></div>
 
     <button ion-button (click)="testButton()">Download Update</button>
 

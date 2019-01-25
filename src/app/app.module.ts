@@ -10,8 +10,8 @@ import { ChatPage } from "../pages/chat/chat";
 import { StatusBar } from "@ionic-native/status-bar";
 import { SplashScreen } from "@ionic-native/splash-screen";
 
-import { SocketIoModule } from "ng-socket-io";
-import { Sockets } from "./sockets";
+// import { SocketIoModule } from "ng-socket-io";
+// import { Sockets } from "./sockets";
 import { IonicStorageModule } from "@ionic/storage";
 
 import { EmojiProvider } from "../providers/emoji";
@@ -68,7 +68,7 @@ import { File } from "@ionic-native/file";
   imports: [
     BrowserModule,
     IonicModule.forRoot(MyApp),
-    SocketIoModule,
+    // SocketIoModule,
     IonicStorageModule.forRoot(),
     HttpClientModule
   ],
@@ -78,7 +78,6 @@ import { File } from "@ionic-native/file";
     StatusBar,
     SplashScreen,
     { provide: ErrorHandler, useClass: IonicErrorHandler },
-    Sockets,
     EmojiProvider,
     ChatService,
     AES256,

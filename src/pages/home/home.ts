@@ -2,7 +2,7 @@ import { File } from "@ionic-native/file";
 import { ChatPage } from "./../chat/chat";
 import { Component } from "@angular/core";
 import { NavController, Platform } from "ionic-angular";
-import { Sockets } from "../../app/sockets";
+// import { Sockets } from "../../app/sockets";
 import { AlertController } from "ionic-angular";
 import { Storage } from "@ionic/storage";
 // import { Socket } from "ng-socket-io";
@@ -15,8 +15,11 @@ import { HttpClient } from "@angular/common/http";
 import { sha256 } from "js-sha256";
 import * as ByteBuffer from "bytebuffer";
 import { Global } from "../../app/Global";
+import { Service } from '../../app/service';
+
 
 import { ec } from "elliptic";
+
 
 // Create and initialize EC context
 // (better do it once and reuse it)
@@ -31,8 +34,8 @@ declare const cordova;
 })
 export class HomePage {
   Global: any = Global;
+  Service: any = Service;
   channels = [];
-  sockets: Sockets;
   nickname = "";
   encodeKey = "empty";
   infoText = "";
@@ -40,7 +43,6 @@ export class HomePage {
   // alertCtrl:AlertController;
   constructor(
     public navCtrl: NavController,
-    public mSockets: Sockets,
     private alertCtrl: AlertController,
     private storage: Storage,
     private aes256: AES256,
@@ -48,7 +50,6 @@ export class HomePage {
     private file: File,
     private platform: Platform
   ) {
-    this.sockets = mSockets;
 
     var key = EC.genKeyPair();
     // Sign the message's hash (input must be an array, or a hex-string)
@@ -140,7 +141,7 @@ export class HomePage {
   channelView() {}
 
   progress() {
-    let value = (this.sockets.activeConnections / 5) * 100;
+    let value = (Service.activeConnections / 5) * 100;
     value = Math.min(100, value);
     return value + "%";
   }
@@ -197,7 +198,7 @@ export class HomePage {
   }
 
   testButton() {
-    let socket = this.sockets.getAConnectedSocket();
+    let socket = Service.getAConnectedSocket();
 
     console.log("get android apk");
     socket.emit("getAndroid.apk", {}, (answer: any) => {
@@ -227,7 +228,7 @@ export class HomePage {
       let hashing = sha256.create();
 
       let b = new ByteBuffer();
-      b.writeLong(answer.timestamp);
+      b.writeInt64(answer.timestamp);
       b.append(arrayBuffer);
 
       b.flip();

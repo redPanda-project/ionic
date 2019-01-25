@@ -7,6 +7,7 @@ import { HomePage } from "../pages/home/home";
 import { ListPage } from "../pages/list/list";
 // import { RequiredValidator } from '@angular/forms';
 import { Storage } from "@ionic/storage";
+import { Service } from "./service";
 
 @Component({
   templateUrl: "app.html"
@@ -39,6 +40,7 @@ export class MyApp {
       // Here you can do any higher level native things you might need.
       this.statusBar.styleBlackOpaque();
       this.splashScreen.hide();
+      Service.init(this.storage);
     });
   }
 
