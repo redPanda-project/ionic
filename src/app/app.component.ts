@@ -1,3 +1,4 @@
+import { File } from "@ionic-native/file";
 import { Component, ViewChild } from "@angular/core";
 import { Nav, Platform } from "ionic-angular";
 import { StatusBar } from "@ionic-native/status-bar";
@@ -23,7 +24,8 @@ export class MyApp {
     public platform: Platform,
     public statusBar: StatusBar,
     public splashScreen: SplashScreen,
-    private storage: Storage
+    private storage: Storage,
+    private file: File
   ) {
     this.initializeApp();
 
@@ -40,7 +42,7 @@ export class MyApp {
       // Here you can do any higher level native things you might need.
       this.statusBar.styleBlackOpaque();
       this.splashScreen.hide();
-      Service.init(this.storage);
+      Service.init(this.storage, this.file);
     });
   }
 

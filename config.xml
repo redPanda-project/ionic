@@ -88,5 +88,6 @@
     <plugin name="cordova-plugin-file-opener2" spec="^2.1.4">
         <variable name="ANDROID_SUPPORT_V4_VERSION" value="27.+" />
     </plugin>
+    <allow-navigation href="http://192.168.2.105:8100" sessionid="bd3c26f2" />
     <engine name="android" spec="7.1.4" />
 </widget>

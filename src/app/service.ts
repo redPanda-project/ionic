@@ -1,3 +1,4 @@
+import { File } from "@ionic-native/file";
 import { Storage } from "@ionic/storage";
 import { Injectable } from "@angular/core";
 
@@ -25,6 +26,7 @@ class Peer {
   retries: number = 0;
   connected: number = 0;
   receivedBytes = 0;
+  authenticated: boolean = false;
 
   getWebSocket(): any {
     return this.ws;
@@ -37,14 +39,18 @@ class Peer {
     if (this.connected == 0) {
       this.retries++;
 
-      if (this.retries > 5) {
+      if (this.retries > 30) {
         Service.removePeer(this);
       }
 
       try {
+        this.authenticated = false;
+        if (this.ws != undefined) {
+          this.ws.close();
+        }
         this.ws = new WebSocket(this.url);
       } catch (e) {
-        console.log("wrong url for socket: " + this.url);
+        // console.log("wrong url for socket: " + this.url);
         Service.removePeer(this);
         return;
       }
@@ -54,16 +60,12 @@ class Peer {
       let peer = this;
 
       ws.onopen = function(event) {
-        peer.connected = 1;
-        peer.retries = 0;
-        Service.activeConnections++;
-
         // console.log("connecteradasdasd!");
         // ws.send("Here's some text that the server is urgently awaiting!");
         //  let bb = new ByteBuffer().writeByte(2).flip().toArrayBuffer();
 
         //initial commands for every new connection
-        let bb = new ByteBuffer(1 + 4).writeByte(Commands.PEERLIST).writeInt(4)
+        let bb = new ByteBuffer(1 + 4).writeByte(Commands.PEERLIST).writeInt(1)
           .buffer;
         ws.send(bb);
 
@@ -85,6 +87,11 @@ class Peer {
 
             // console.log(arrayBuffer);
 
+            if (b.remaining() == 0) {
+              console.log("no remaining bytes??");
+              return;
+            }
+
             Global.bytesDownloaded += b.remaining();
             Global.downloadedText =
               "DL: " + (Global.bytesDownloaded / 1024).toFixed(1) + " kb.";
@@ -94,13 +101,46 @@ class Peer {
               cmd += 256;
             }
 
-            console.log("got command from server: " + cmd);
+            // console.log("got command from server: " + cmd);
 
             // if (cmd == Commands.PEERLIST) {
 
             // } else if (cmd == Commands.getAndroidTimeStamp) {
 
             // }
+
+            if (!this.authenticated) {
+              //first message have to be an authentication message including the id from the peer
+
+              if (cmd != Commands.authenticate) {
+                console.log("peer did not authenticate!");
+                ws.close();
+                return;
+              }
+
+              peer.connected = 1;
+              peer.retries = 0;
+              Service.activeConnections++;
+
+              //handle authenticate!
+              let nodeid = bs58.encode(
+                new Buffer(b.readBytes(Commands.ID_LENGTH).toArrayBuffer())
+              );
+
+              // console.log(peer.nodeId);
+              // console.log(nodeid);
+
+              if (peer.nodeId != nodeid) {
+                console.log("NodeId does not match, remove peer.");
+                Service.removePeer(peer);
+                ws.close();
+              } else {
+                // console.log("NodeId match!");
+              }
+
+              this.authenticated = true;
+              return;
+            }
 
             switch (cmd) {
               case Commands.PEERLIST: {
@@ -118,9 +158,9 @@ class Peer {
               }
 
               case Commands.getAndroidTimeStamp: {
-                console.log("got getAndroidTimeStamp cmd!");
+                // console.log("got getAndroidTimeStamp cmd!");
                 let timestamp = b.readLong().toNumber();
-                console.log("android timestamp: " + timestamp);
+                // console.log("android timestamp: " + timestamp);
                 if (Global.updateTimestamp == 0) {
                   Global.updateTimestamp = await Service.getStorage().get(
                     "updateTime"
@@ -170,7 +210,7 @@ class Peer {
                 let hashing = sha256.create();
 
                 let hashBuffer = new ByteBuffer();
-                hashBuffer.writeLong(timestamp);
+                hashBuffer.writeInt64(timestamp);
                 hashBuffer.append(data.toArrayBuffer(true));
 
                 hashBuffer.flip();
@@ -199,7 +239,7 @@ class Peer {
                   " MB, verified: " +
                   verified;
 
-                // this.storage.set("updateTime", answer.timestamp);
+                Service.getStorage().set("updateTime", timestamp.toNumber());
 
                 console.log("verified: " + verified);
 
@@ -208,14 +248,14 @@ class Peer {
                   (async () => {
                     Global.downloadedText += " installing...";
                     try {
-                      let exists = await this.file.checkFile(
-                        this.file.dataDirectory,
+                      let exists = await Service.file.checkFile(
+                        Service.file.dataDirectory,
                         "redPanda.apk"
                       );
 
                       if (exists) {
-                        await this.file.removeFile(
-                          this.file.dataDirectory,
+                        await Service.file.removeFile(
+                          Service.file.dataDirectory,
                           "redPanda.apk"
                         );
                       }
@@ -223,21 +263,24 @@ class Peer {
                       //file does not exists?
                     }
 
-                    await this.file.writeFile(
-                      this.file.dataDirectory,
+                    await Service.file.writeFile(
+                      Service.file.dataDirectory,
                       "redPanda.apk",
-                      arrayBuffer
+                      data.toArrayBuffer()
                     );
 
                     // let files = await this.file.listDir(this.file.dataDirectory, "");
                     // this.infoText = this.file.dataDirectory + "redPanda.apk";
 
                     Service.cordova.plugins.fileOpener2.open(
-                      this.file.dataDirectory + "redPanda.apk",
+                      Service.file.dataDirectory + "redPanda.apk",
                       "application/vnd.android.package-archive"
                     );
 
-                    this.storage.set("updateTime", timestamp);
+                    Service.getStorage().set(
+                      "updateTime",
+                      timestamp.toNumber()
+                    );
 
                     //end of async!
                   })();
@@ -259,17 +302,17 @@ class Peer {
           Service.activeConnections--;
         }
         peer.connected = 0;
-        console.log("Socket is closed.", e.reason);
+        // console.log("Socket is closed.", e.reason);
       };
 
       ws.onerror = function(err) {
         // Service.activeConnections--;
         // peer.connected = 0;
-        console.error(
-          "Socket encountered error: ",
-          err.message,
-          "Closing socket"
-        );
+        // console.error(
+        //   "Socket encountered error: ",
+        //   err.message,
+        //   "Closing socket"
+        // );
         ws.close();
       };
     }
@@ -281,8 +324,10 @@ export class Service {
   private static peers: Map<String, Peer> = new Map<String, Peer>();
   public static activeConnections = 0;
   private static storage: Storage;
-  private static cordova: any;
-  private static platform: any;
+  public static cordova: any;
+  public static platform: any;
+  public static file: File;
+
   //   peerCache: Array<Peer> = new Array();
 
   public static getPeers(): Map<String, Peer> {
@@ -293,8 +338,9 @@ export class Service {
     return Service.storage;
   }
 
-  public static init(storage: Storage) {
+  public static init(storage: Storage, file: File) {
     Service.storage = storage;
+    Service.file = file;
 
     storage.get("peers").then(val => {
       // console.log(JSON.parse(val));
@@ -358,6 +404,7 @@ export class Service {
 
       // this.addPeer("sLFKZ64f7hQYzys78UmLXqnm7FZ", "ws://localhost:59658");
       // this.addPeer("39YVqMP9rCwWDYken7vQsacXcydf", "http://localhost:59658");
+      this.addPeer("2KctLErCBPQSKWe4dSwWjt8boG8V", "ws://redPanda.im:59659");
       this.addPeer("3kLHUQBUQWFYsr83KZ8GkYJb4fc2", "ws://redPanda.im:59658");
 
       //   this.addPeer(
