@@ -9,7 +9,7 @@
   <div class="meter green nostripes">
     <span [style.width]="progress()"></span>
   </div>
-  Active Connections: {{ Service.activeConnections }}
+  Active Connections: {{ service.activeConnections }}
   {{ Global.downloadedText }} {{ infoText }} <br />
   <button *ngIf="Global.updateAvailable" ion-button (click)="testButton()">
     Update Available
@@ -18,7 +18,7 @@
   <ion-item-group approxItemHeight="40px">
     <!-- <ion-item-divider color="light">Channels</ion-item-divider> -->
     <button
-      *ngFor="let channel of channels"
+      *ngFor="let channel of service.channels"
       ion-item
       (click)="openChat(channel)"
       class="bg-style"
@@ -43,7 +43,7 @@
   <div padding>
     Peerlist: (nodeId, retries, url)
 
-    <div [innerHTML]="Service.listNodes()"></div>
+    <div [innerHTML]="service.listNodes()"></div>
 
     <button ion-button (click)="testButton()">Download Update</button>
 

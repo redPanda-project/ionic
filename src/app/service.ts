@@ -8,6 +8,7 @@ import { Global } from "./Global";
 import * as ByteBuffer from "bytebuffer";
 import { Commands } from "./commands";
 import { sha256 } from "js-sha256";
+import { Platform } from "ionic-angular";
 
 declare const Buffer;
 
@@ -32,15 +33,15 @@ class Peer {
     return this.ws;
   }
 
-  connect() {
+  connect(service: Service) {
     //localStorage.debug = "*";
     localStorage.debug = "";
 
     if (this.connected == 0) {
       this.retries++;
 
-      if (this.retries > 30) {
-        Service.removePeer(this);
+      if (this.retries > 5) {
+        service.removePeer(this);
       }
 
       try {
@@ -51,7 +52,7 @@ class Peer {
         this.ws = new WebSocket(this.url);
       } catch (e) {
         // console.log("wrong url for socket: " + this.url);
-        Service.removePeer(this);
+        service.removePeer(this);
         return;
       }
 
@@ -120,7 +121,7 @@ class Peer {
 
               peer.connected = 1;
               peer.retries = 0;
-              Service.activeConnections++;
+              service.activeConnections++;
 
               //handle authenticate!
               let nodeid = bs58.encode(
@@ -132,7 +133,9 @@ class Peer {
 
               if (peer.nodeId != nodeid) {
                 console.log("NodeId does not match, remove peer.");
-                Service.removePeer(peer);
+                service.removePeer(peer);
+                let newPeer = new Peer(peer.url);
+                service.addPeer(nodeid, peer.url);
                 ws.close();
               } else {
                 // console.log("NodeId match!");
@@ -151,7 +154,7 @@ class Peer {
                   let nodeId: any = b.readIString();
                   let url: any = b.readIString();
                   // console.log(nodeId + " " + url);
-                  Service.addPeer(nodeId, url);
+                  service.addPeer(nodeId, url);
                 }
 
                 break;
@@ -162,7 +165,7 @@ class Peer {
                 let timestamp = b.readLong().toNumber();
                 // console.log("android timestamp: " + timestamp);
                 if (Global.updateTimestamp == 0) {
-                  Global.updateTimestamp = await Service.getStorage().get(
+                  Global.updateTimestamp = await service.getStorage().get(
                     "updateTime"
                   );
                 }
@@ -239,23 +242,23 @@ class Peer {
                   " MB, verified: " +
                   verified;
 
-                Service.getStorage().set("updateTime", timestamp.toNumber());
+                  service.getStorage().set("updateTime", timestamp.toNumber());
 
                 console.log("verified: " + verified);
 
                 //we can now store the update!
-                if (verified && Service.platform.is("cordova")) {
+                if (verified && this.platform.is("cordova")) {
                   (async () => {
                     Global.downloadedText += " installing...";
                     try {
-                      let exists = await Service.file.checkFile(
-                        Service.file.dataDirectory,
+                      let exists = await service.file.checkFile(
+                        service.file.dataDirectory,
                         "redPanda.apk"
                       );
 
                       if (exists) {
-                        await Service.file.removeFile(
-                          Service.file.dataDirectory,
+                        await service.file.removeFile(
+                          service.file.dataDirectory,
                           "redPanda.apk"
                         );
                       }
@@ -263,8 +266,8 @@ class Peer {
                       //file does not exists?
                     }
 
-                    await Service.file.writeFile(
-                      Service.file.dataDirectory,
+                    await this.file.writeFile(
+                      this.file.dataDirectory,
                       "redPanda.apk",
                       data.toArrayBuffer()
                     );
@@ -272,15 +275,12 @@ class Peer {
                     // let files = await this.file.listDir(this.file.dataDirectory, "");
                     // this.infoText = this.file.dataDirectory + "redPanda.apk";
 
-                    Service.cordova.plugins.fileOpener2.open(
-                      Service.file.dataDirectory + "redPanda.apk",
+                    this.cordova.plugins.fileOpener2.open(
+                      this.file.dataDirectory + "redPanda.apk",
                       "application/vnd.android.package-archive"
                     );
 
-                    Service.getStorage().set(
-                      "updateTime",
-                      timestamp.toNumber()
-                    );
+                    this.getStorage().set("updateTime", timestamp.toNumber());
 
                     //end of async!
                   })();
@@ -299,7 +299,7 @@ class Peer {
 
       ws.onclose = function(e) {
         if (peer.connected == 1) {
-          Service.activeConnections--;
+          service.activeConnections--;
         }
         peer.connected = 0;
         // console.log("Socket is closed.", e.reason);
@@ -321,34 +321,46 @@ class Peer {
 
 @Injectable()
 export class Service {
-  private static peers: Map<String, Peer> = new Map<String, Peer>();
-  public static activeConnections = 0;
-  private static storage: Storage;
-  public static cordova: any;
-  public static platform: any;
-  public static file: File;
+  private peers: Map<String, Peer> = new Map<String, Peer>();
+  public activeConnections = 0;
+  // private storage: Storage;
+  public cordova: any;
+  // public platform: any;
+  // public file: File;
+  public channels = [];
+
+  constructor(
+    private storage: Storage,
+    public file: File,
+    private platform: Platform
+  ) {}
 
   //   peerCache: Array<Peer> = new Array();
 
-  public static getPeers(): Map<String, Peer> {
-    return Service.peers;
+  public getPeers(): Map<String, Peer> {
+    return this.peers;
   }
 
-  public static getStorage(): Storage {
-    return Service.storage;
+  public getStorage(): Storage {
+    return this.storage;
   }
 
-  public static init(storage: Storage, file: File) {
-    Service.storage = storage;
-    Service.file = file;
+  public init() {
+    this.storage.get("channels").then(val => {
+      if (val == undefined) {
+        return;
+      }
 
-    storage.get("peers").then(val => {
+      this.channels = JSON.parse(val);
+    });
+
+    this.storage.get("peers").then(val => {
       // console.log(JSON.parse(val));
       if (val != undefined) {
         for (let p of JSON.parse(val)) {
           let newPeer = new Peer(p.url);
           newPeer.setNodeId(p.nodeId);
-          Service.peers.set(p.nodeId, newPeer);
+          this.peers.set(p.nodeId, newPeer);
         }
       }
       //start refreshing after we loaded the peers
@@ -374,25 +386,25 @@ export class Service {
     // console.log(bs58.encode(decoded));
   }
 
-  public static init2(platform: any, cordova: any) {
-    Service.cordova = cordova;
-    Service.platform = platform;
-  }
+  // public init2(platform: any, cordova: any) {
+  //   Service.cordova = cordova;
+  //   Service.platform = platform;
+  // }
 
-  public static addPeer(nodeId: string, url: string) {
-    if (Service.getPeers().has(nodeId)) {
+  public addPeer(nodeId: string, url: string) {
+    if (this.getPeers().has(nodeId)) {
       // console.log("already in list!!!");
       return;
     }
 
     let newPeer = new Peer(url);
     newPeer.setNodeId(nodeId);
-    Service.peers.set(nodeId, newPeer);
+    this.peers.set(nodeId, newPeer);
 
     this.savePeers();
   }
 
-  public static refresh() {
+  public refresh() {
     // console.log("sockets refresh started...");
 
     if (this.peers.size == 0) {
@@ -429,7 +441,7 @@ export class Service {
     // console.log(JSON.stringify(this.peers.values()));
 
     for (let peer of Array.from(this.peers.values())) {
-      peer.connect();
+      peer.connect(this);
       //   peer.getSocket().emit("set-nickname", {
       //     userName: "nick",
       //     message: "teeest"
@@ -440,7 +452,7 @@ export class Service {
     }
   }
 
-  public static getAConnectedSocket(): WebSocket {
+  public getAConnectedSocket(): WebSocket {
     for (let peer of Array.from(this.peers.values())) {
       if (peer.connected == 1) {
         return peer.ws;
@@ -448,7 +460,7 @@ export class Service {
     }
   }
 
-  public static getActiveConnections() {
+  public getActiveConnections() {
     let cnt = 0;
     for (let peer of Array.from(this.peers.values())) {
       if (peer.connected == 1) {
@@ -458,7 +470,7 @@ export class Service {
     return cnt;
   }
 
-  public static listNodes() {
+  public listNodes() {
     // console.log("asdf" + JSON.stringify(Array.from(this.peers.values())));
 
     let a = "";
@@ -476,7 +488,7 @@ export class Service {
     return a;
   }
 
-  public static greet() {
+  public greet() {
     return "Hello, ";
   }
 
@@ -507,7 +519,7 @@ export class Service {
   //   return this.objToStrMap(JSON.parse(jsonStr));
   // }
 
-  public static savePeers() {
+  public savePeers() {
     let savePeers = [];
     for (let p of Array.from(this.peers.values())) {
       let np = new Peer(p.url);
@@ -518,13 +530,36 @@ export class Service {
     this.storage.set("peers", JSON.stringify(savePeers));
   }
 
-  public static removePeer(peer: Peer) {
+  public removePeer(peer: Peer) {
     this.peers.delete(peer.nodeId);
     this.savePeers();
   }
 
-  public static downloadUpdate() {
-    let ws = Service.getAConnectedSocket();
+  public downloadUpdate() {
+    let ws = this.getAConnectedSocket();
     ws.send(new ByteBuffer(1).writeByte(Commands.getAndroidApk).buffer);
+  }
+
+  public createNewChannel(name: String) {
+    const keyPair = bitcoin.ECPair.makeRandom();
+    const { address } = bitcoin.payments.p2pkh({
+      pubkey: keyPair.publicKey
+    });
+    console.log("pubkey: " + address);
+    console.log("pubkey2: " + bs58.encode(keyPair.publicKey));
+    // console.log("priv: " + bs58.encode(keyPair.privateKey));
+
+    var decoded = bs58.decode(bs58.encode(keyPair.privateKey));
+
+    console.log(decoded);
+
+    console.log(bs58.encode(decoded));
+
+    this.channels.push({
+      name: name,
+      privateKey: bs58.encode(keyPair.privateKey),
+      publicKey: bs58.encode(keyPair.publicKey)
+    });
+    this.storage.set("channels", JSON.stringify(this.channels));
   }
 }

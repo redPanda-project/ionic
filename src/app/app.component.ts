@@ -25,7 +25,8 @@ export class MyApp {
     public statusBar: StatusBar,
     public splashScreen: SplashScreen,
     private storage: Storage,
-    private file: File
+    private file: File,
+    private service: Service
   ) {
     this.initializeApp();
 
@@ -42,7 +43,7 @@ export class MyApp {
       // Here you can do any higher level native things you might need.
       this.statusBar.styleBlackOpaque();
       this.splashScreen.hide();
-      Service.init(this.storage, this.file);
+      this.service.init();
     });
   }
 

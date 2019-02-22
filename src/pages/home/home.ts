@@ -14,7 +14,7 @@ import { AES } from "../../redPanda/crypto";
 import { HttpClient } from "@angular/common/http";
 import { sha256 } from "js-sha256";
 import * as ByteBuffer from "bytebuffer";
-import { Global } from "../../app/Global";
+import { Global } from '../../app/Global';
 import { Service } from "../../app/service";
 
 import { ec } from "elliptic";
@@ -32,8 +32,7 @@ declare const cordova;
 })
 export class HomePage {
   Global: any = Global;
-  Service: any = Service;
-  channels = [];
+
   nickname = "";
   encodeKey = "empty";
   infoText = "";
@@ -46,13 +45,14 @@ export class HomePage {
     private aes256: AES256,
     private http: HttpClient,
     private file: File,
-    private platform: Platform
+    private platform: Platform,
+    public service: Service
   ) {
-    if (this.platform.is("cordova")) {
-      Service.init2(this.platform, cordova);
-    } else {
-      Service.init2(this.platform, undefined);
-    }
+    // if (this.platform.is("cordova")) {
+    //   Service.init2(this.platform, cordova);
+    // } else {
+    //   Service.init2(this.platform, undefined);
+    // }
 
     var key = EC.genKeyPair();
     // Sign the message's hash (input must be an array, or a hex-string)
@@ -71,13 +71,14 @@ export class HomePage {
     var pubPoint = key.getPublic();
     // console.log(pubPoint.encode("base"));
 
-    storage.get("channels").then(val => {
-      if (val == undefined) {
-        return;
-      }
+    // storage.get("channels").then(val => {
+    //   if (val == undefined) {
+    //     return;
+    //   }
 
-      this.channels = JSON.parse(val);
-    });
+
+    //   service.channels = JSON.parse(val);
+    // });
 
     // this.encodeKey = bs58.encode(
     //   crypto
@@ -144,7 +145,7 @@ export class HomePage {
   channelView() {}
 
   progress() {
-    let value = (Service.activeConnections / 5) * 100;
+    let value = (this.service.activeConnections / 5) * 100;
     value = Math.min(100, value);
     return value + "%";
   }
@@ -172,26 +173,27 @@ export class HomePage {
             let name = data.name.trim(" ");
 
             console.log("Saved clicked" + name);
-            const keyPair = bitcoin.ECPair.makeRandom();
-            const { address } = bitcoin.payments.p2pkh({
-              pubkey: keyPair.publicKey
-            });
-            console.log("pubkey: " + address);
-            console.log("pubkey2: " + bs58.encode(keyPair.publicKey));
-            console.log("priv: " + bs58.encode(keyPair.privateKey));
+            // const keyPair = bitcoin.ECPair.makeRandom();
+            // const { address } = bitcoin.payments.p2pkh({
+            //   pubkey: keyPair.publicKey
+            // });
+            // console.log("pubkey: " + address);
+            // console.log("pubkey2: " + bs58.encode(keyPair.publicKey));
+            // console.log("priv: " + bs58.encode(keyPair.privateKey));
 
-            var decoded = bs58.decode(bs58.encode(keyPair.privateKey));
+            // var decoded = bs58.decode(bs58.encode(keyPair.privateKey));
 
-            console.log(decoded);
+            // console.log(decoded);
 
-            console.log(bs58.encode(decoded));
+            // console.log(bs58.encode(decoded));
 
-            this.channels.push({
-              name: name,
-              privateKey: bs58.encode(keyPair.privateKey),
-              publicKey: bs58.encode(keyPair.publicKey)
-            });
-            this.storage.set("channels", JSON.stringify(this.channels));
+            // this.service.channels.push({
+            //   name: name,
+            //   privateKey: bs58.encode(keyPair.privateKey),
+            //   publicKey: bs58.encode(keyPair.publicKey)
+            // });
+            // this.storage.set("channels", JSON.stringify(Global.channels));
+            this.service.createNewChannel(name);
           }
         }
       ]
@@ -201,7 +203,7 @@ export class HomePage {
   }
 
   testButton() {
-    Service.downloadUpdate();
+    this.service.downloadUpdate();
     //     let ws = Service.getAConnectedSocket();
 
     //     console.log("get android apk");

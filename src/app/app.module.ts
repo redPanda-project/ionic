@@ -25,6 +25,7 @@ import { File } from "@ionic-native/file";
 
 // import { https } from "@angular/common/https";
 // import * as https from 'https';
+import { Service } from './service';
 // https.globalAgent.options.rejectUnauthorized = false;
 
 // const config: SocketIoConfig = {
@@ -81,7 +82,8 @@ import { File } from "@ionic-native/file";
     EmojiProvider,
     ChatService,
     AES256,
-    File
+    File,
+    Service
   ]
 })
 export class AppModule {}
