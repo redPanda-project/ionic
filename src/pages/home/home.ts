@@ -14,10 +14,11 @@ import { AES } from "../../redPanda/crypto";
 import { HttpClient } from "@angular/common/http";
 import { sha256 } from "js-sha256";
 import * as ByteBuffer from "bytebuffer";
-import { Global } from '../../app/Global';
+import { Global } from "../../app/Global";
 import { Service } from "../../app/service";
 
 import { ec } from "elliptic";
+// import * as Sentry from "sentry-cordova";
 
 // Create and initialize EC context
 // (better do it once and reuse it)
@@ -48,6 +49,9 @@ export class HomePage {
     private platform: Platform,
     public service: Service
   ) {
+
+    Global.isCordova = this.platform.is("cordova");
+
     // if (this.platform.is("cordova")) {
     //   Service.init2(this.platform, cordova);
     // } else {
@@ -71,11 +75,25 @@ export class HomePage {
     var pubPoint = key.getPublic();
     // console.log(pubPoint.encode("base"));
 
+    storage.get("sentryOkay").then(val => {
+      if (val == null) {
+        this.presentSentryConfirm();
+        return;
+      }
+
+      if (val == true) {
+        //init sentry
+        // Sentry.init({
+        //   dsn: "https://a54410e81d8a4e1d8f8d83b3d7729b44@sentry.io/1400282"
+        // });
+        // console.log("sentry io init");
+      }
+    });
+
     // storage.get("channels").then(val => {
     //   if (val == undefined) {
     //     return;
     //   }
-
 
     //   service.channels = JSON.parse(val);
     // });
@@ -139,7 +157,8 @@ export class HomePage {
   }
 
   createNewChannel() {
-    this.doNamePrompt();
+    //this.doNamePrompt();
+    throw new Error('I am a bug... 🐛');;
   }
 
   channelView() {}
@@ -300,5 +319,31 @@ export class HomePage {
 
     //       //   console.log("peers: " + typeof { asd: 5 });
     //     });
+  }
+
+  async presentSentryConfirm() {
+    let alert = this.alertCtrl.create({
+      title: "Allow to send crash reports?",
+      message:
+        "If you agree, your client will send errors/crashes to us via sentry.",
+      inputs: [],
+      buttons: [
+        {
+          text: "Cancel",
+          handler: () => {
+            console.log("Cancel clicked");
+            this.storage.set("sentryOkay", false);
+          }
+        },
+        {
+          text: "Create",
+          handler: data => {
+            this.storage.set("sentryOkay", true);
+          }
+        }
+      ]
+    });
+
+    alert.present();
   }
 }

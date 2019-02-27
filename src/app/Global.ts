@@ -3,5 +3,6 @@ export var Global = {
   updateTimestamp: 0,
   bytesDownloaded: 0,
   downloadedText: "--",
-  test: ""
+  test: "",
+  isCordova: false
 };

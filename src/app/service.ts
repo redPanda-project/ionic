@@ -165,9 +165,9 @@ class Peer {
                 let timestamp = b.readLong().toNumber();
                 // console.log("android timestamp: " + timestamp);
                 if (Global.updateTimestamp == 0) {
-                  Global.updateTimestamp = await service.getStorage().get(
-                    "updateTime"
-                  );
+                  Global.updateTimestamp = await service
+                    .getStorage()
+                    .get("updateTime");
                 }
                 // console.log(Global.updateTimestamp);
                 // console.log(answer.timestamp);
@@ -242,12 +242,12 @@ class Peer {
                   " MB, verified: " +
                   verified;
 
-                  service.getStorage().set("updateTime", timestamp.toNumber());
+                service.getStorage().set("updateTime", timestamp.toNumber());
 
                 console.log("verified: " + verified);
 
                 //we can now store the update!
-                if (verified && this.platform.is("cordova")) {
+                if (verified && Global.isCordova) {
                   (async () => {
                     Global.downloadedText += " installing...";
                     try {
@@ -266,8 +266,8 @@ class Peer {
                       //file does not exists?
                     }
 
-                    await this.file.writeFile(
-                      this.file.dataDirectory,
+                    await service.file.writeFile(
+                      service.file.dataDirectory,
                       "redPanda.apk",
                       data.toArrayBuffer()
                     );
@@ -275,12 +275,12 @@ class Peer {
                     // let files = await this.file.listDir(this.file.dataDirectory, "");
                     // this.infoText = this.file.dataDirectory + "redPanda.apk";
 
-                    this.cordova.plugins.fileOpener2.open(
-                      this.file.dataDirectory + "redPanda.apk",
+                    service.cordova.plugins.fileOpener2.open(
+                      service.file.dataDirectory + "redPanda.apk",
                       "application/vnd.android.package-archive"
                     );
 
-                    this.getStorage().set("updateTime", timestamp.toNumber());
+                    service.getStorage().set("updateTime", timestamp.toNumber());
 
                     //end of async!
                   })();
@@ -319,6 +319,7 @@ class Peer {
   }
 }
 
+declare const cordova;
 @Injectable()
 export class Service {
   private peers: Map<String, Peer> = new Map<String, Peer>();
@@ -333,7 +334,11 @@ export class Service {
     private storage: Storage,
     public file: File,
     private platform: Platform
-  ) {}
+  ) {
+    if (this.platform.is("cordova")) {
+      this.cordova = cordova;
+    }
+  }
 
   //   peerCache: Array<Peer> = new Array();
 
