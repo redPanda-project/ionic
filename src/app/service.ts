@@ -130,9 +130,15 @@ class Peer {
               peer.connected = 1;
               peer.retries = 0;
               service.activeConnections++;
+
+              //debug instance
+              if (peer.url.startsWith("ws://84.134")) {
+                peer.score += 1000;
+              }
+
               peer.score += 10;
               if (peer.score > 100) {
-                peer.score += 100;
+                peer.score = 100;
               }
 
               //handle authenticate!
@@ -368,7 +374,7 @@ export class Service {
 
   public init() {
     this.storage.get("identity").then(val => {
-      if (val === undefined) {
+      if (val === undefined || val === null) {
         this.identity = Math.floor(Math.random() * 1000000);
         this.storage.set("identity", JSON.stringify(this.identity));
         return;
@@ -577,20 +583,49 @@ export class Service {
 
         let id = KademliaId.byPublicKey(c.pubKey);
 
-       let kc = new KadContent(id, Date.now(), c.pubKey, b.toArrayBuffer(), null);
+        let kc = new KadContent(
+          id,
+          Date.now(),
+          c.pubKey,
+          b.toArrayBuffer(),
+          null
+        );
 
-       let key = bitcoin.ECPair.fromPrivateKey(Buffer.from(c.privKey));
-       kc.signWith(key);
+        let key = bitcoin.ECPair.fromPrivateKey(Buffer.from(c.privKey));
+        kc.signWith(key);
 
-       console.log("verified: " + kc.verify());
+        console.log("verified: " + kc.verify());
 
         // ws.send(new ByteBuffer(1).writeByte(Commands.getAndroidApk).buffer);
+
+        let o = new ByteBuffer(1024);
+
+        o.writeByte(Commands.dhtStore);
+        o.writeInt32(12345);
+        o.append(kc.getId().getBytes());
+        o.writeInt64(kc.getTimestamp());
+        console.log(kc.getTimestamp());
+
+        o.append(kc.getPublicKey());
+
+        o.writeInt32(kc.getContent().byteLength);
+        o.append(kc.getContent());
+        o.append(kc.getSignature());
+
+        o.flip();
+
+        ws.send(o.toArrayBuffer());
       }
     }
   }
 
   public getAConnectedSocket(): WebSocket {
-    for (let peer of Array.from(this.peers.values())) {
+    let peers = Array.from(this.peers.values());
+    peers.sort((a, b) => {
+      return b.score - a.score;
+    });
+
+    for (let peer of peers) {
       if (peer.connected == 1) {
         return peer.ws;
       }

@@ -31,4 +31,8 @@ export class KademliaId {
 
     return new KademliaId(out);
   }
+
+  public getBytes() : ArrayBuffer {
+    return this.keyBytes;
+  }
 }

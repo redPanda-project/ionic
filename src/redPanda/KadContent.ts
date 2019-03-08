@@ -61,4 +61,20 @@ export class KadContent {
 
     this.signature = ByteBuffer.wrap(signature).toArrayBuffer();
   }
+
+  public getId(): KademliaId {
+    return this.id;
+  }
+  public getTimestamp(): number {
+    return this.timestamp;
+  }
+  public getPublicKey(): ArrayBuffer {
+    return this.pubkey;
+  }
+  public getContent(): ArrayBuffer {
+    return this.content;
+  }
+  public getSignature(): ArrayBuffer {
+    return this.signature;
+  }
 }
