@@ -2,7 +2,7 @@ import { sha256 } from "js-sha256";
 import { createHash } from "crypto";
 import * as bitcoin from "bitcoinjs-lib";
 import * as ByteBuffer from "bytebuffer";
-import { KademliaId } from './KademliaId';
+import { KademliaId } from "./KademliaId";
 
 export class KadContent {
   private id: KademliaId; //we store the ID duplicated because of performance reasons (new lookup in the hashmap costs more than a bit of memory)
@@ -24,9 +24,8 @@ export class KadContent {
     this.content = content;
     this.signature = signature;
   }
-  
 
-  createHash(): ArrayBuffer {
+  createHash(): Buffer {
     let hashing = sha256.create();
 
     let hashBuffer = new ByteBuffer();
@@ -41,15 +40,25 @@ export class KadContent {
     let asdf = ByteBuffer.wrap(hashing.arrayBuffer());
     console.log(asdf.toHex());
 
-    return hashing.arrayBuffer();
+    return Buffer.from(hashing.arrayBuffer());
   }
 
   verify(): boolean {
-    let updateKey = bitcoin.ECPair.fromPublicKey(this.pubkey);
+    let updateKey = bitcoin.ECPair.fromPublicKey(Buffer.from(this.pubkey));
 
     let hash = this.createHash();
 
-    let verified = updateKey.verify(hash, this.signature);
+    let verified = updateKey.verify(hash, Buffer.from(this.signature));
     return verified;
+  }
+
+  signWith(key: any) {
+    let hash = this.createHash();
+
+    let signature = key.sign(hash);
+    // console.log("signature");
+    // console.log(signature);
+
+    this.signature = ByteBuffer.wrap(signature).toArrayBuffer();
   }
 }

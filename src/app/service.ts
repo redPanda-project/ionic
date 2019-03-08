@@ -9,7 +9,6 @@ import * as ByteBuffer from "bytebuffer";
 import { Commands } from "./commands";
 import { sha256 } from "js-sha256";
 import { Platform } from "ionic-angular";
-import { a, b } from "@angular/core/src/render3";
 import { KadContent } from "../redPanda/KadContent";
 import { KademliaId } from "../redPanda/KademliaId";
 
@@ -386,6 +385,8 @@ export class Service {
         return;
       }
 
+      console.log(val);
+
       this.channels = JSON.parse(val);
     });
 
@@ -542,6 +543,12 @@ export class Service {
     for (let c of Array.from(this.channels)) {
       console.log("chan: " + c.name);
 
+      console.log(c.pubKey);
+      if (Object.keys(c.pubKey).length === 0) {
+        c.pubKey = ByteBuffer.wrap(bs58.decode(c.pubKeyBs58)).toArrayBuffer();
+        c.privKey = ByteBuffer.wrap(bs58.decode(c.privKeyBs58)).toArrayBuffer();
+      }
+
       if (c.sharedInfo === undefined) {
         //lets search for infos in the dht network!
 
@@ -560,15 +567,22 @@ export class Service {
 
         let b = ByteBuffer.allocate();
         b.writeIString(contentString);
+        b.flip();
 
         let ws = this.getAConnectedSocket();
-        
-        console.log(a);
-        console.log(c.pubKey);
+
+        // console.log("a " + c.pubKey);
+        // console.log(c.pubKey);
+        // console.log(c);
 
         let id = KademliaId.byPublicKey(c.pubKey);
 
-        new KadContent(id, Date.now(), c.pubKey, b.toArrayBuffer(), null);
+       let kc = new KadContent(id, Date.now(), c.pubKey, b.toArrayBuffer(), null);
+
+       let key = bitcoin.ECPair.fromPrivateKey(Buffer.from(c.privKey));
+       kc.signWith(key);
+
+       console.log("verified: " + kc.verify());
 
         // ws.send(new ByteBuffer(1).writeByte(Commands.getAndroidApk).buffer);
       }
@@ -690,16 +704,18 @@ export class Service {
     let privKey = ByteBuffer.wrap(keyPair.privateKey).toArrayBuffer();
     let pubKey = ByteBuffer.wrap(keyPair.publicKey).toArrayBuffer();
 
-    let bs58key = bs58.encode(Buffer.from(pubKey));
-
     this.channels.push({
       name: name,
       // privateKey: bs58.encode(keyPair.privateKey),
       // publicKey: bs58.encode(keyPair.publicKey)
       privKey: privKey,
       pubKey: pubKey,
-      pubKeyBs58: bs58key
+      privKeyBs58: bs58.encode(Buffer.from(privKey)),
+      pubKeyBs58: bs58.encode(Buffer.from(pubKey))
     });
+
+    console.log(this.channels);
+
     this.storage.set("channels", JSON.stringify(this.channels));
   }
 }
