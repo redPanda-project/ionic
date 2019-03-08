@@ -33,7 +33,7 @@
       <!-- </h2>
       <h3 class="animated bounceInUp">{{game.enemyRank}}</h3>
       <h1 clear item-end class="animated bounceInRight">{{game.scoreM}}:{{game.scoreE}}</h1> -->
-      <h3>{{ channel.publicKey }}</h3>
+      <h3>{{ channel.pubKeyBs58 }}</h3>
       <h1 clear item-end>--</h1>
     </button>
   </ion-item-group>
@@ -46,6 +46,7 @@
     <div [innerHTML]="service.listNodes()"></div>
 
     <button ion-button (click)="testButton()">Download Update</button>
+    <button ion-button (click)="savePeers()">Save Peers</button>
 
     <p>
       If you get lost, the

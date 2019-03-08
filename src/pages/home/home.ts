@@ -157,8 +157,8 @@ export class HomePage {
   }
 
   createNewChannel() {
-    //this.doNamePrompt();
-    throw new Error('I am a bug... 🐛');;
+    this.doNamePrompt();
+    // throw new Error('I am a bug... 🐛');;
   }
 
   channelView() {}
@@ -219,6 +219,10 @@ export class HomePage {
     });
 
     alert.present();
+  }
+
+  savePeers() {
+    this.service.savePeers();
   }
 
   testButton() {

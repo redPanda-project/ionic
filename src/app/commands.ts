@@ -3,5 +3,6 @@ export var Commands = {
   PEERLIST: 2,
   getAndroidTimeStamp: 200,
   getAndroidApk: 201,
-  authenticate: 202
+  authenticate: 202,
+  dhtStore: 203
 };

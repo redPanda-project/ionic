@@ -9,6 +9,9 @@ import * as ByteBuffer from "bytebuffer";
 import { Commands } from "./commands";
 import { sha256 } from "js-sha256";
 import { Platform } from "ionic-angular";
+import { a, b } from "@angular/core/src/render3";
+import { KadContent } from "../redPanda/KadContent";
+import { KademliaId } from "../redPanda/KademliaId";
 
 declare const Buffer;
 
@@ -28,6 +31,7 @@ class Peer {
   connected: number = 0;
   receivedBytes = 0;
   authenticated: boolean = false;
+  score = 0;
 
   getWebSocket(): any {
     return this.ws;
@@ -39,9 +43,14 @@ class Peer {
 
     if (this.connected == 0) {
       this.retries++;
+      this.score -= 5;
 
-      if (this.retries > 5) {
+      if (this.retries > 100) {
         service.removePeer(this);
+      }
+
+      if (this.retries % 10 == 0) {
+        service.savePeers();
       }
 
       try {
@@ -122,6 +131,10 @@ class Peer {
               peer.connected = 1;
               peer.retries = 0;
               service.activeConnections++;
+              peer.score += 10;
+              if (peer.score > 100) {
+                peer.score += 100;
+              }
 
               //handle authenticate!
               let nodeid = bs58.encode(
@@ -280,7 +293,9 @@ class Peer {
                       "application/vnd.android.package-archive"
                     );
 
-                    service.getStorage().set("updateTime", timestamp.toNumber());
+                    service
+                      .getStorage()
+                      .set("updateTime", timestamp.toNumber());
 
                     //end of async!
                   })();
@@ -329,6 +344,8 @@ export class Service {
   // public platform: any;
   // public file: File;
   public channels = [];
+  public identity: any;
+  public endpoints: any;
 
   constructor(
     private storage: Storage,
@@ -351,8 +368,21 @@ export class Service {
   }
 
   public init() {
+    this.storage.get("identity").then(val => {
+      if (val === undefined) {
+        this.identity = Math.floor(Math.random() * 1000000);
+        this.storage.set("identity", JSON.stringify(this.identity));
+        return;
+      }
+      this.identity = JSON.parse(val);
+      console.log("identity: " + this.identity);
+    });
+    this.storage.get("endpoints").then(val => {
+      this.endpoints = JSON.parse(val);
+    });
+
     this.storage.get("channels").then(val => {
-      if (val == undefined) {
+      if (val === undefined) {
         return;
       }
 
@@ -362,13 +392,17 @@ export class Service {
     this.storage.get("peers").then(val => {
       // console.log(JSON.parse(val));
       if (val != undefined) {
+        //restore fields here
         for (let p of JSON.parse(val)) {
           let newPeer = new Peer(p.url);
           newPeer.setNodeId(p.nodeId);
+          newPeer.score = p.score;
           this.peers.set(p.nodeId, newPeer);
         }
       }
       //start refreshing after we loaded the peers
+      this.maintainEndpoints();
+      this.maintainChannels();
       this.refresh();
       setInterval(() => {
         this.refresh();
@@ -457,6 +491,90 @@ export class Service {
     }
   }
 
+  public maintainEndpoints() {
+    //the Endpoints contains the outbound and inbound servers we are using
+
+    // console.log("asdf; " + Array.from(this.peers.values()).length);
+
+    //get best server:
+    let peers = Array.from(this.peers.values());
+    peers.sort((a, b) => {
+      return b.score - a.score;
+    });
+
+    if (peers.length < 3) {
+      return;
+    }
+
+    console.log("server for inbound messages: " + peers[0].nodeId);
+    console.log("backup server: " + peers[1].nodeId);
+
+    const keyPair = bitcoin.ECPair.makeRandom();
+
+    let priv = bs58.encode(keyPair.privateKey);
+    let pub = bs58.encode(keyPair.publicKey);
+    let priv2 = bs58.encode(keyPair.privateKey);
+    let pub2 = bs58.encode(keyPair.publicKey);
+
+    this.endpoints = {
+      inbound: { id: peers[0].nodeId, pub: pub, priv: priv },
+      inboundSecondary: { id: peers[1].nodeId, pub: pub2, priv: priv2 }
+    };
+
+    this.storage.set("endpoints", JSON.stringify(this.endpoints));
+    // console.log(this.endpoints);
+  }
+
+  public maintainChannels() {
+    if (this.channels == null) {
+      //no channels added by now
+      return;
+    }
+
+    if (this.endpoints == null || this.activeConnections < 3) {
+      setTimeout(() => {
+        this.maintainChannels();
+      }, 300);
+      console.log("run maintainChannels() in 300ms again!");
+      return;
+    }
+
+    for (let c of Array.from(this.channels)) {
+      console.log("chan: " + c.name);
+
+      if (c.sharedInfo === undefined) {
+        //lets search for infos in the dht network!
+
+        //lets create our info!
+        let content = {
+          ["user" + this.identity]: {
+            inboundId: this.endpoints.inbound.id,
+            inboundPub: this.endpoints.inbound.pub,
+            timestamp: Date.now()
+          }
+        };
+
+        console.log(content);
+
+        let contentString = JSON.stringify(content);
+
+        let b = ByteBuffer.allocate();
+        b.writeIString(contentString);
+
+        let ws = this.getAConnectedSocket();
+        
+        console.log(a);
+        console.log(c.pubKey);
+
+        let id = KademliaId.byPublicKey(c.pubKey);
+
+        new KadContent(id, Date.now(), c.pubKey, b.toArrayBuffer(), null);
+
+        // ws.send(new ByteBuffer(1).writeByte(Commands.getAndroidApk).buffer);
+      }
+    }
+  }
+
   public getAConnectedSocket(): WebSocket {
     for (let peer of Array.from(this.peers.values())) {
       if (peer.connected == 1) {
@@ -486,6 +604,8 @@ export class Service {
         "</font>" +
         "      " +
         +peer.retries +
+        "      " +
+        +peer.score +
         "      " +
         peer.url +
         "<br>\n";
@@ -526,9 +646,12 @@ export class Service {
 
   public savePeers() {
     let savePeers = [];
+    //we can only save certain fields
     for (let p of Array.from(this.peers.values())) {
       let np = new Peer(p.url);
       np.setNodeId(p.nodeId);
+      np.score = p.score;
+      console.log("saved score: " + np.score);
       savePeers.push(np);
     }
 
@@ -560,10 +683,22 @@ export class Service {
 
     console.log(bs58.encode(decoded));
 
+    if (this.channels === null) {
+      this.channels = [];
+    }
+
+    let privKey = ByteBuffer.wrap(keyPair.privateKey).toArrayBuffer();
+    let pubKey = ByteBuffer.wrap(keyPair.publicKey).toArrayBuffer();
+
+    let bs58key = bs58.encode(Buffer.from(pubKey));
+
     this.channels.push({
       name: name,
-      privateKey: bs58.encode(keyPair.privateKey),
-      publicKey: bs58.encode(keyPair.publicKey)
+      // privateKey: bs58.encode(keyPair.privateKey),
+      // publicKey: bs58.encode(keyPair.publicKey)
+      privKey: privKey,
+      pubKey: pubKey,
+      pubKeyBs58: bs58key
     });
     this.storage.set("channels", JSON.stringify(this.channels));
   }
