@@ -195,6 +195,71 @@ class Peer {
                 break;
               }
 
+              case Commands.dhtSearch: {
+                console.log("got dhtSearch answer cmd!");
+
+                let ackId = b.readInt32();
+                let keyBytes = b.readBytes(Commands.ID_LENGTH).toArrayBuffer();
+                let timestamp = b.readLong().toNumber();
+                let publicKeyBytes = b
+                  .readBytes(Commands.PUBKEY_LEN)
+                  .toArrayBuffer();
+
+                let contentByteLen = b.readInt32();
+                let contentBytes = b.readBytes(contentByteLen);
+
+                let signatureBytes = b
+                  .readBytes(Commands.SIGNATURE_LEN)
+                  .toArrayBuffer();
+
+                let id = KademliaId.byPublicKey(publicKeyBytes);
+
+                let kadContent = new KadContent(
+                  id,
+                  timestamp,
+                  publicKeyBytes,
+                  contentBytes.toArrayBuffer(),
+                  signatureBytes
+                );
+
+                let verified = kadContent.verify();
+
+                console.log("verified: " + verified);
+
+                if (verified) {
+                  //we can safely parse the content since it is signed!
+                  //toDo: unencrypt
+
+                  // console.log(JSON.parse(contentBytes.toString()));
+
+                  let string = contentBytes.readIString().toString();
+
+                  let obj = JSON.parse(string);
+
+                  console.log(obj.users);
+
+                  for (let user of obj.users) {
+                    console.log("user: " + user.id + " " + service.identity);
+
+                    if (user.id == service.identity) {
+                      console.log(
+                        "we found our data, lets check it, generated: " +
+                          Service.toHHMMSS(Date.now() - user.timestamp)
+                      );
+
+                      console.log(Date.now() - user.timestamp);
+
+                      Global.downloadedText =
+                        string +
+                        " " +
+                        Service.toHHMMSS(Date.now() - user.timestamp);
+                    }
+                  }
+                }
+
+                break;
+              }
+
               case Commands.getAndroidApk: {
                 console.log("got getAndroidApk cmd!");
 
@@ -533,6 +598,7 @@ export class Service {
   }
 
   public maintainChannels() {
+    console.log("running maintain channels!!");
     if (this.channels == null) {
       //no channels added by now
       return;
@@ -547,76 +613,16 @@ export class Service {
     }
 
     for (let c of Array.from(this.channels)) {
-      console.log("chan: " + c.name);
-
-      console.log(c.pubKey);
-      if (Object.keys(c.pubKey).length === 0) {
-        c.pubKey = ByteBuffer.wrap(bs58.decode(c.pubKeyBs58)).toArrayBuffer();
-        c.privKey = ByteBuffer.wrap(bs58.decode(c.privKeyBs58)).toArrayBuffer();
-      }
-
-      if (c.sharedInfo === undefined) {
-        //lets search for infos in the dht network!
-
-        //lets create our info!
-        let content = {
-          ["user" + this.identity]: {
-            inboundId: this.endpoints.inbound.id,
-            inboundPub: this.endpoints.inbound.pub,
-            timestamp: Date.now()
-          }
-        };
-
-        console.log(content);
-
-        let contentString = JSON.stringify(content);
-
-        let b = ByteBuffer.allocate();
-        b.writeIString(contentString);
-        b.flip();
-
-        let ws = this.getAConnectedSocket();
-
-        // console.log("a " + c.pubKey);
-        // console.log(c.pubKey);
-        // console.log(c);
-
-        let id = KademliaId.byPublicKey(c.pubKey);
-
-        let kc = new KadContent(
-          id,
-          Date.now(),
-          c.pubKey,
-          b.toArrayBuffer(),
-          null
-        );
-
-        let key = bitcoin.ECPair.fromPrivateKey(Buffer.from(c.privKey));
-        kc.signWith(key);
-
-        console.log("verified: " + kc.verify());
-
-        // ws.send(new ByteBuffer(1).writeByte(Commands.getAndroidApk).buffer);
-
-        let o = new ByteBuffer(1024);
-
-        o.writeByte(Commands.dhtStore);
-        o.writeInt32(12345);
-        o.append(kc.getId().getBytes());
-        o.writeInt64(kc.getTimestamp());
-        console.log(kc.getTimestamp());
-
-        o.append(kc.getPublicKey());
-
-        o.writeInt32(kc.getContent().byteLength);
-        o.append(kc.getContent());
-        o.append(kc.getSignature());
-
-        o.flip();
-
-        ws.send(o.toArrayBuffer());
-      }
+      // this.channels.forEach(c => {
+      // console.log("fmusidmgfusdf");
+      // this.refreshChannel(c);
+      this.sendMyDataToChannel(c);
     }
+    // });
+
+    // setTimeout(() => {
+    //   this.maintainChannels();
+    // }, 5000);
   }
 
   public getAConnectedSocket(): WebSocket {
@@ -629,6 +635,84 @@ export class Service {
       if (peer.connected == 1) {
         return peer.ws;
       }
+    }
+  }
+
+  public sendMyDataToChannel(c) {
+    console.log("chan: " + c.name);
+
+    // console.log(c.pubKey);
+    if (Object.keys(c.pubKey).length === 0) {
+      c.pubKey = ByteBuffer.wrap(bs58.decode(c.pubKeyBs58)).toArrayBuffer();
+      c.privKey = ByteBuffer.wrap(bs58.decode(c.privKeyBs58)).toArrayBuffer();
+    }
+
+    if (c.sharedInfo === undefined) {
+      //lets search for infos in the dht network!
+
+      //lets create our info!
+      let content = {
+        users: [
+          // array with only one user in it!
+          {
+            id: this.identity,
+            inboundId: this.endpoints.inbound.id,
+            inboundPub: this.endpoints.inbound.pub,
+            timestamp: Date.now()
+          }
+        ]
+      };
+
+      // console.log(content);
+
+      let contentString = JSON.stringify(content);
+
+      //todo: encrypt content!!!!
+
+      let b = ByteBuffer.allocate();
+      b.writeIString(contentString);
+      b.flip();
+
+      let ws = this.getAConnectedSocket();
+
+      // console.log("a " + c.pubKey);
+      // console.log(c.pubKey);
+      // console.log(c);
+
+      let id = KademliaId.byPublicKey(c.pubKey);
+
+      let kc = new KadContent(
+        id,
+        Date.now(),
+        c.pubKey,
+        b.toArrayBuffer(),
+        null
+      );
+
+      let key = bitcoin.ECPair.fromPrivateKey(Buffer.from(c.privKey));
+      kc.signWith(key);
+
+      console.log("verified: " + kc.verify());
+
+      // ws.send(new ByteBuffer(1).writeByte(Commands.getAndroidApk).buffer);
+
+      let o = new ByteBuffer(1024);
+
+      o.writeByte(Commands.dhtStore);
+      o.writeInt32(12345);
+      o.append(kc.getId().getBytes());
+      o.writeInt64(kc.getTimestamp());
+      console.log(kc.getTimestamp());
+
+      o.append(kc.getPublicKey());
+
+      o.writeInt32(kc.getContent().byteLength);
+      o.append(kc.getContent());
+      o.append(kc.getSignature());
+
+      o.flip();
+
+      ws.send(o.toArrayBuffer());
     }
   }
 
@@ -645,8 +729,13 @@ export class Service {
   public listNodes() {
     // console.log("asdf" + JSON.stringify(Array.from(this.peers.values())));
 
+    let peers = Array.from(this.peers.values());
+    peers.sort((a, b) => {
+      return b.score - a.score;
+    });
+
     let a = "";
-    for (let peer of Array.from(this.peers.values())) {
+    for (let peer of peers) {
       a +=
         (!peer.connected ? '<font color="red">' : '<font color="green">') +
         peer.nodeId.substring(0, 10) +
@@ -696,7 +785,13 @@ export class Service {
   public savePeers() {
     let savePeers = [];
     //we can only save certain fields
-    for (let p of Array.from(this.peers.values())) {
+
+    let peers = Array.from(this.peers.values());
+    peers.sort((a, b) => {
+      return b.score - a.score;
+    });
+
+    for (let p of peers) {
       let np = new Peer(p.url);
       np.setNodeId(p.nodeId);
       np.score = p.score;
@@ -751,6 +846,86 @@ export class Service {
 
     console.log(this.channels);
 
+    this.saveChannels();
+  }
+
+  public saveChannels() {
     this.storage.set("channels", JSON.stringify(this.channels));
+  }
+
+  public refreshChannel(c) {
+    console.log("chan: " + c.name);
+
+    Global.downloadedText = "dht search chan: " + c.name;
+
+    // console.log(c.pubKey);
+    if (Object.keys(c.pubKey).length === 0) {
+      c.pubKey = ByteBuffer.wrap(bs58.decode(c.pubKeyBs58)).toArrayBuffer();
+      c.privKey = ByteBuffer.wrap(bs58.decode(c.privKeyBs58)).toArrayBuffer();
+    }
+
+    if (c.sharedInfo === undefined) {
+      //lets search for infos in the dht network!
+
+      //lets create our info!
+      let content = {
+        users: {
+          id: this.identity,
+          inboundId: this.endpoints.inbound.id,
+          inboundPub: this.endpoints.inbound.pub,
+          timestamp: Date.now()
+        }
+      };
+      // console.log(content);
+
+      let contentString = JSON.stringify(content);
+
+      //todo: encrypt content!!!!
+
+      let b = ByteBuffer.allocate();
+      b.writeIString(contentString);
+      b.flip();
+
+      let ws = this.getAConnectedSocket();
+
+      // console.log("a " + c.pubKey);
+      // console.log(c.pubKey);
+      // console.log(c);
+
+      let id = KademliaId.byPublicKey(c.pubKey);
+
+      let o = new ByteBuffer(1024);
+
+      o.writeByte(Commands.dhtSearch);
+      o.writeInt32(1234); //command id / ACK id
+      o.append(id.getBytes());
+
+      o.flip();
+
+      ws.send(o.toArrayBuffer());
+    }
+  }
+
+  public static toHHMMSS(sec_num) {
+    sec_num = Math.floor(sec_num / 1000);
+
+    let hours = Math.floor(sec_num / 3600);
+    let minutes = Math.floor((sec_num - hours * 3600) / 60);
+    let seconds = sec_num - hours * 3600 - minutes * 60;
+
+    let hours2 = hours.toString();
+    let minutes2 = minutes.toString();
+    let seconds2 = seconds.toString();
+
+    if (hours < 10) {
+      hours2 = "0" + hours2;
+    }
+    if (minutes < 10) {
+      minutes2 = "0" + minutes2;
+    }
+    if (seconds < 10) {
+      seconds2 = "0" + seconds2;
+    }
+    return hours2 + ":" + minutes2 + ":" + seconds2;
   }
 }

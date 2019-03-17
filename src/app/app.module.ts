@@ -29,6 +29,9 @@ import { File } from "@ionic-native/file";
 import { Service } from "./service";
 // https.globalAgent.options.rejectUnauthorized = false;
 
+
+import { LongPressModule } from 'ionic-long-press';
+
 // const config: SocketIoConfig = {
 //   url: "http://localhost:10445",
 //   options: {
@@ -78,7 +81,8 @@ import { Service } from "./service";
     IonicModule.forRoot(MyApp),
     // SocketIoModule,
     IonicStorageModule.forRoot(),
-    HttpClientModule
+    HttpClientModule,
+    LongPressModule
   ],
   bootstrap: [IonicApp],
   entryComponents: [MyApp, HomePage, ListPage, ChatPage, EmojiPickerComponent],

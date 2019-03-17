@@ -17,7 +17,7 @@ export class KademliaId {
     let hashing = sha256.create();
 
     let hashBuffer = new ByteBuffer();
-    hashBuffer.writeInt64(123456);
+    hashBuffer.writeInt64(1234591);
     hashBuffer.append(pubkey);
 
     hashBuffer.flip();

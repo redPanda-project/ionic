@@ -49,7 +49,6 @@ export class HomePage {
     private platform: Platform,
     public service: Service
   ) {
-
     Global.isCordova = this.platform.is("cordova");
 
     // if (this.platform.is("cordova")) {
@@ -350,4 +349,44 @@ export class HomePage {
 
     alert.present();
   }
+
+  active(channel) {
+    this.service.refreshChannel(channel);
+
+    // let alert = this.alertCtrl.create({
+    //   title: "Settings: ",
+    //   message: "Here you can change some settings for " + channel.name + ".",
+    //   inputs: [
+    //     {
+    //       name: "name",
+    //       placeholder: channel.name
+    //     }
+    //   ],
+    //   buttons: [
+    //     {
+    //       text: "Cancel",
+    //       role: "cancel",
+    //       handler: () => {
+    //         console.log("Cancel clicked");
+
+    //         // this.service.refreshChannel(channel);
+    //       }
+    //     },
+    //     {
+    //       text: "Confirm",
+    //       handler: data => {
+    //         let name = data.name.trim(" ");
+    //         channel.name = name;
+    //         this.service.saveChannels();
+    //       }
+    //     }
+    //   ]
+    // });
+
+    // alert.present();
+  }
+
+  released() {}
+
+  pressed() {}
 }

@@ -22,6 +22,7 @@
       ion-item
       (click)="openChat(channel)"
       class="bg-style"
+      ion-long-press [interval]="2000" (onPressStart)="pressed()" (onPressing)="active(channel)" (onPressEnd)="released()"
     >
       <!-- <ion-avatar item-start class="animated bounceInLeft"> -->
       <ion-avatar item-start>
