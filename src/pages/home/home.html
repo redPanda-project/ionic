@@ -22,7 +22,7 @@
       ion-item
       (click)="openChat(channel)"
       class="bg-style"
-      ion-long-press [interval]="2000" (onPressStart)="pressed()" (onPressing)="active(channel)" (onPressEnd)="released()"
+      ion-long-press [interval]="500" (onPressStart)="pressed()" (onPressing)="active(channel)" (onPressEnd)="released()"
     >
       <!-- <ion-avatar item-start class="animated bounceInLeft"> -->
       <ion-avatar item-start>
@@ -34,8 +34,13 @@
       <!-- </h2>
       <h3 class="animated bounceInUp">{{game.enemyRank}}</h3>
       <h1 clear item-end class="animated bounceInRight">{{game.scoreM}}:{{game.scoreE}}</h1> -->
-      <h3>{{ channel.pubKeyBs58 }}</h3>
-      <h1 clear item-end>--</h1>
+      <!-- <h3>{{ channel.pubKeyBs58 }}</h3> -->
+      <h3>{{ channel.info }}</h3>
+      <!-- <div *ngIf="Global.updateAvailable" clear item-end>Content to render when condition is true.</div> -->
+      <ion-spinner *ngIf="channel.status === undefined" clear item-end name="dots" color="light"></ion-spinner>
+      <ion-spinner *ngIf="channel.status == 2" clear item-end name="dots" color="primary"></ion-spinner>
+      <ion-spinner *ngIf="channel.status == 3" clear item-end name="dots" color="medium"></ion-spinner>
+      <!-- <h1  clear item-end >--</h1> -->
     </button>
   </ion-item-group>
 

@@ -11,6 +11,7 @@ import { sha256 } from "js-sha256";
 import { Platform } from "ionic-angular";
 import { KadContent } from "../redPanda/KadContent";
 import { KademliaId } from "../redPanda/KademliaId";
+import { c } from "@angular/core/src/render3";
 
 declare const Buffer;
 
@@ -230,6 +231,8 @@ class Peer {
                   //we can safely parse the content since it is signed!
                   //toDo: unencrypt
 
+                  //WARNING: the content is currently unencrypted!!!
+
                   // console.log(JSON.parse(contentBytes.toString()));
 
                   let string = contentBytes.readIString().toString();
@@ -238,10 +241,23 @@ class Peer {
 
                   console.log(obj.users);
 
+                  let sendDataToDHT = false;
+                  let foundEntryFromUs = false;
+
+                  let chan = service.getChannelById(obj.id);
+
+                  console.log(obj.id);
+                  console.log(obj);
+                  console.log(service.channels);
+
+                  chan.dht = obj;
+
                   for (let user of obj.users) {
                     console.log("user: " + user.id + " " + service.identity);
 
                     if (user.id == service.identity) {
+                      chan.status = 1;
+                      foundEntryFromUs = true;
                       console.log(
                         "we found our data, lets check it, generated: " +
                           Service.toHHMMSS(Date.now() - user.timestamp)
@@ -249,11 +265,28 @@ class Peer {
 
                       console.log(Date.now() - user.timestamp);
 
-                      Global.downloadedText =
-                        string +
-                        " " +
-                        Service.toHHMMSS(Date.now() - user.timestamp);
+                      chan.info =
+                        "last dht " +
+                        Service.toHHMMSS(Date.now() - user.timestamp) +
+                        " ago.";
+
+                      // Global.downloadedText =
+                      //   string +
+                      //   " " +
+                      //   Service.toHHMMSS(Date.now() - user.timestamp);
+
+                      if (Date.now() - user.timestamp > 1000 * 60 * 1) {
+                        sendDataToDHT = true;
+                      }
                     }
+                  }
+
+                  if (!foundEntryFromUs) {
+                    sendDataToDHT = true;
+                  }
+
+                  if (sendDataToDHT) {
+                    service.sendMyDataToChannel(chan);
                   }
                 }
 
@@ -612,11 +645,17 @@ export class Service {
       return;
     }
 
+    //rerun every 2 mins!
+    setTimeout(() => {
+      this.maintainChannels();
+    }, 1000 * 60 * 2);
+
     for (let c of Array.from(this.channels)) {
       // this.channels.forEach(c => {
       // console.log("fmusidmgfusdf");
-      // this.refreshChannel(c);
-      this.sendMyDataToChannel(c);
+      this.refreshChannel(c);
+
+      // this.sendMyDataToChannel(c);
     }
     // });
 
@@ -650,8 +689,9 @@ export class Service {
     if (c.sharedInfo === undefined) {
       //lets search for infos in the dht network!
 
-      //lets create our info!
+      //lets create a dht entry from scratch!
       let content = {
+        id: c.id,
         users: [
           // array with only one user in it!
           {
@@ -714,6 +754,10 @@ export class Service {
 
       ws.send(o.toArrayBuffer());
     }
+
+    setTimeout(() => {
+      this.refreshChannel(c);
+    }, 10000);
   }
 
   public getActiveConnections() {
@@ -834,7 +878,10 @@ export class Service {
     let privKey = ByteBuffer.wrap(keyPair.privateKey).toArrayBuffer();
     let pubKey = ByteBuffer.wrap(keyPair.publicKey).toArrayBuffer();
 
-    this.channels.push({
+    let id = Math.floor(Math.random() * 5000000);
+
+    let chan = {
+      id: id,
       name: name,
       // privateKey: bs58.encode(keyPair.privateKey),
       // publicKey: bs58.encode(keyPair.publicKey)
@@ -842,17 +889,29 @@ export class Service {
       pubKey: pubKey,
       privKeyBs58: bs58.encode(Buffer.from(privKey)),
       pubKeyBs58: bs58.encode(Buffer.from(pubKey))
-    });
+    };
+
+    this.channels.push(chan);
 
     console.log(this.channels);
 
     this.saveChannels();
+
+    this.refreshChannel(chan);
   }
 
+  /**
+   * saves the channels in the ionic storage
+   */
   public saveChannels() {
     this.storage.set("channels", JSON.stringify(this.channels));
   }
 
+  /**
+   * We search to current dht entry for the channel,
+   * the decision making is done in the answer from the peer
+   * @param c channel
+   */
   public refreshChannel(c) {
     console.log("chan: " + c.name);
 
@@ -903,7 +962,15 @@ export class Service {
       o.flip();
 
       ws.send(o.toArrayBuffer());
+
+      c.status = 2;
     }
+
+    setTimeout(() => {
+      if (c.dht === undefined) {
+        this.sendMyDataToChannel(c);
+      }
+    }, 10000);
   }
 
   public static toHHMMSS(sec_num) {
@@ -927,5 +994,14 @@ export class Service {
       seconds2 = "0" + seconds2;
     }
     return hours2 + ":" + minutes2 + ":" + seconds2;
+  }
+
+  getChannelById(id: number): any {
+    for (let c of this.channels) {
+      if (c.id == id) {
+        return c;
+      }
+    }
+    return null;
   }
 }
