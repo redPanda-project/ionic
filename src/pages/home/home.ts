@@ -224,6 +224,10 @@ export class HomePage {
     this.service.savePeers();
   }
 
+  saveChans() {
+    this.service.saveChannels();
+  }
+
   testButton() {
     this.service.downloadUpdate();
     //     let ws = Service.getAConnectedSocket();

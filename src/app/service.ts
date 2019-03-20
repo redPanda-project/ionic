@@ -12,6 +12,7 @@ import { Platform } from "ionic-angular";
 import { KadContent } from "../redPanda/KadContent";
 import { KademliaId } from "../redPanda/KademliaId";
 import { c } from "@angular/core/src/render3";
+import { Utils } from "./utils";
 
 declare const Buffer;
 
@@ -228,6 +229,7 @@ class Peer {
                 console.log("verified: " + verified);
 
                 if (verified) {
+                  peer.score += 2;
                   //we can safely parse the content since it is signed!
                   //toDo: unencrypt
 
@@ -358,13 +360,22 @@ class Peer {
                   " MB, verified: " +
                   verified;
 
-                service.getStorage().set("updateTime", timestamp.toNumber());
-
                 console.log("verified: " + verified);
 
                 //we can now store the update!
                 if (verified && Global.isCordova) {
                   (async () => {
+                    //lets check if this update is really newer than our current version
+                    let ourTimestmap = await service
+                      .getStorage()
+                      .get("updateTime");
+
+                    if (ourTimestmap >= timestamp.toNumber()) {
+                      Global.downloadedText +=
+                        "update is not newer than our version, aborting installation...";
+                      return;
+                    }
+
                     Global.downloadedText += " installing...";
                     try {
                       let exists = await service.file.checkFile(
@@ -391,17 +402,20 @@ class Peer {
                     // let files = await this.file.listDir(this.file.dataDirectory, "");
                     // this.infoText = this.file.dataDirectory + "redPanda.apk";
 
+                    service
+                      .getStorage()
+                      .set("updateTime", timestamp.toNumber());
+
                     service.cordova.plugins.fileOpener2.open(
                       service.file.dataDirectory + "redPanda.apk",
                       "application/vnd.android.package-archive"
                     );
 
-                    service
-                      .getStorage()
-                      .set("updateTime", timestamp.toNumber());
-
                     //end of async!
                   })();
+                } else if (verified) {
+                  //no cordova, so no android, lets just set the timestamp such that the button goes away for now
+                  service.getStorage().set("updateTime", timestamp.toNumber());
                 }
 
                 break;
@@ -645,17 +659,23 @@ export class Service {
       return;
     }
 
-    //rerun every 2 mins!
+    //rerun every x mins!
     setTimeout(() => {
       this.maintainChannels();
     }, 1000 * 60 * 2);
 
+    let cnt = 0;
+
     for (let c of Array.from(this.channels)) {
       // this.channels.forEach(c => {
       // console.log("fmusidmgfusdf");
-      this.refreshChannel(c);
+
+      setTimeout(() => {
+        this.refreshChannel(c);
+      }, 200 * cnt);
 
       // this.sendMyDataToChannel(c);
+      cnt++;
     }
     // });
 
@@ -666,9 +686,11 @@ export class Service {
 
   public getAConnectedSocket(): WebSocket {
     let peers = Array.from(this.peers.values());
-    peers.sort((a, b) => {
-      return b.score - a.score;
-    });
+    // peers.sort((a, b) => {
+    //   return b.score - a.score;
+    // });
+
+    Utils.shuffleArray(peers);
 
     for (let peer of peers) {
       if (peer.connected == 1) {
@@ -677,8 +699,25 @@ export class Service {
     }
   }
 
+  public getRandPeer(): Peer {
+    let peers = Array.from(this.peers.values());
+    // peers.sort((a, b) => {
+    //   return b.score - a.score;
+    // });
+
+    Utils.shuffleArray(peers);
+
+    for (let peer of peers) {
+      if (peer.connected == 1) {
+        return peer;
+      }
+    }
+  }
+
   public sendMyDataToChannel(c) {
     console.log("chan: " + c.name);
+
+    Global.downloadedText = "dht store chan info: " + c.name;
 
     // console.log(c.pubKey);
     if (Object.keys(c.pubKey).length === 0) {
@@ -713,7 +752,8 @@ export class Service {
       b.writeIString(contentString);
       b.flip();
 
-      let ws = this.getAConnectedSocket();
+      // let ws = this.getAConnectedSocket();
+      let toSendPeer = this.getRandPeer();
 
       // console.log("a " + c.pubKey);
       // console.log(c.pubKey);
@@ -752,7 +792,9 @@ export class Service {
 
       o.flip();
 
-      ws.send(o.toArrayBuffer());
+      toSendPeer.ws.send(o.toArrayBuffer());
+
+      // toSendPeer.score -= 1;
     }
 
     setTimeout(() => {
@@ -904,7 +946,14 @@ export class Service {
    * saves the channels in the ionic storage
    */
   public saveChannels() {
-    this.storage.set("channels", JSON.stringify(this.channels));
+    let chanCopy = JSON.parse(JSON.stringify(this.channels));
+
+    for (let c of chanCopy) {
+      c.dht = undefined;
+      c.status = undefined;
+    }
+
+    this.storage.set("channels", JSON.stringify(chanCopy));
   }
 
   /**
@@ -945,7 +994,8 @@ export class Service {
       b.writeIString(contentString);
       b.flip();
 
-      let ws = this.getAConnectedSocket();
+      // let ws = this.getAConnectedSocket();
+      let toSendPeer = this.getRandPeer();
 
       // console.log("a " + c.pubKey);
       // console.log(c.pubKey);
@@ -961,13 +1011,14 @@ export class Service {
 
       o.flip();
 
-      ws.send(o.toArrayBuffer());
+      toSendPeer.ws.send(o.toArrayBuffer());
+      toSendPeer.score -= 1;
 
       c.status = 2;
     }
 
     setTimeout(() => {
-      if (c.dht === undefined) {
+      if (c.dht === undefined || c.status != 1) {
         this.sendMyDataToChannel(c);
       }
     }, 10000);

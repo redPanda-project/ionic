@@ -51,16 +51,11 @@
 
     <div [innerHTML]="service.listNodes()"></div>
 
-    <button ion-button (click)="testButton()">Download Update</button>
+    <button ion-button (click)="testButton()">Force Update</button>
     <button ion-button (click)="savePeers()">Save Peers</button>
+    <button ion-button (click)="saveChans()">Save Chans</button>
 
-    <p>
-      If you get lost, the
-      <a href="http://ionicframework.com/docs/v2">docs</a> will show you the
-      way.
-    </p>
-
-    <button ion-button secondary menuToggle>Toggle Menu</button>
+    <!-- <button ion-button secondary menuToggle>Toggle Menu</button> -->
   </div>
   <ion-fab right bottom>
     <button ion-fab color="primary" (click)="createNewChannel()">
