@@ -51,6 +51,12 @@ export class HomePage {
   ) {
     Global.isCordova = this.platform.is("cordova");
 
+    //Register observer for web browser reload
+    window.addEventListener("beforeunload", () => {
+      // service.saveChannels();
+      service.savePeers();
+    });
+
     // if (this.platform.is("cordova")) {
     //   Service.init2(this.platform, cordova);
     // } else {
@@ -111,7 +117,7 @@ export class HomePage {
     //   );
     // })();
 
-    AES.encode();
+    // AES.encode();
 
     // let url = 'http://redpanda.im:59758/android.apk';
     // this.http.get(url)

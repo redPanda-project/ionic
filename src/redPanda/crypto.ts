@@ -4,7 +4,25 @@ import * as ByteBuffer from "bytebuffer";
 declare const Buffer;
 
 export class AES {
-  static encode() {
+  static encode(bytesToEnc: ArrayBuffer, key: ArrayBuffer, iv: ArrayBuffer): Buffer {
+    aes.setKeySize(256);
+    return aes.encBytes(Buffer.from(bytesToEnc), Buffer.from(key), Buffer.from(iv));
+  }
+
+  static decode(bytesToDec: ArrayBuffer, key: ArrayBuffer, iv: ArrayBuffer): Buffer {
+    aes.setKeySize(256);
+    return aes.decBytes(Buffer.from(bytesToDec), Buffer.from(key), Buffer.from(iv));
+  }
+
+  static encodeBuffer(bytesToEnc: Buffer, key: Buffer, iv: Buffer): Buffer {
+    return aes.encBytes(bytesToEnc, key, iv);
+  }
+
+  static decodeBuffer(bytesToDec: Buffer, key: Buffer, iv: Buffer): Buffer {
+    return aes.decBytes(bytesToDec, key, iv);
+  }
+
+  static tmp() {
     aes.setKeySize(256);
 
     var key = new Buffer([

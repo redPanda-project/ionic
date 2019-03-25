@@ -1,3 +1,4 @@
+import { AES } from "./../redPanda/crypto";
 import { File } from "@ionic-native/file";
 import { Storage } from "@ionic/storage";
 import { Injectable } from "@angular/core";
@@ -11,8 +12,8 @@ import { sha256 } from "js-sha256";
 import { Platform } from "ionic-angular";
 import { KadContent } from "../redPanda/KadContent";
 import { KademliaId } from "../redPanda/KademliaId";
-import { c } from "@angular/core/src/render3";
 import { Utils } from "./utils";
+import Raven from "raven-js";
 
 declare const Buffer;
 
@@ -91,7 +92,7 @@ class Peer {
       ws.onmessage = function(e) {
         var fileReader = new FileReader();
         fileReader.onload = event => {
-          (async () => {
+          let promise = async () => {
             let asd: any = event.target;
             let arrayBuffer = asd.result;
             let b = ByteBuffer.wrap(arrayBuffer);
@@ -233,11 +234,38 @@ class Peer {
                   //we can safely parse the content since it is signed!
                   //toDo: unencrypt
 
-                  //WARNING: the content is currently unencrypted!!!
+                  let chan = service.getChannelByDhtPublicKey(publicKeyBytes);
 
-                  // console.log(JSON.parse(contentBytes.toString()));
+                  if (chan === null) {
+                    console.log(
+                      "## warning got dht entry but we did not found a associated channel for it!!!"
+                    );
+                    return;
+                  }
 
-                  let string = contentBytes.readIString().toString();
+                  //todo: improve IV
+                  let hashing = sha256.create();
+                  let hashBuffer = new ByteBuffer();
+                  hashBuffer.writeInt64(timestamp);
+                  hashBuffer.flip();
+                  hashing.update(hashBuffer.toArrayBuffer());
+
+                  let hash = ByteBuffer.wrap(hashing.arrayBuffer());
+                  let iv = hash.readBytes(16).toArrayBuffer(); // iv is 16 bytes
+
+                  let decodedPayload = AES.decode(
+                    contentBytes.toArrayBuffer(),
+                    chan.privKey,
+                    iv
+                  );
+
+                  // let string = contentBytes.readIString().toString();
+
+                  let decodedBytes = ByteBuffer.wrap(decodedPayload);
+
+                  let string = decodedBytes.readString(decodedBytes.limit);
+
+                  // console.log(string);
 
                   let obj = JSON.parse(string);
 
@@ -245,8 +273,6 @@ class Peer {
 
                   let sendDataToDHT = false;
                   let foundEntryFromUs = false;
-
-                  let chan = service.getChannelById(obj.id);
 
                   console.log(obj.id);
                   console.log(obj);
@@ -421,7 +447,18 @@ class Peer {
                 break;
               }
             }
-          })();
+          };
+
+          promise().catch(error => {
+            console.log(error.message);
+            console.log(error.stack);
+
+            try {
+              Raven.captureException(error.stack);
+            } catch (e) {
+              console.error(e);
+            }
+          });
         };
         fileReader.readAsArrayBuffer(e.data);
 
@@ -744,13 +781,27 @@ export class Service {
 
       // console.log(content);
 
+      let timestamp = Date.now();
+
       let contentString = JSON.stringify(content);
 
       //todo: encrypt content!!!!
 
       let b = ByteBuffer.allocate();
-      b.writeIString(contentString);
+      b.writeString(contentString);
       b.flip();
+
+      //todo: improve IV
+      let hashing = sha256.create();
+      let hashBuffer = new ByteBuffer();
+      hashBuffer.writeInt64(timestamp);
+      hashBuffer.flip();
+      hashing.update(hashBuffer.toArrayBuffer());
+
+      let hash = ByteBuffer.wrap(hashing.arrayBuffer());
+      let iv = hash.readBytes(16).toArrayBuffer(); // iv is 16 bytes
+
+      let encodedPayload = AES.encode(b.toArrayBuffer(), c.privKey, iv);
 
       // let ws = this.getAConnectedSocket();
       let toSendPeer = this.getRandPeer();
@@ -763,9 +814,9 @@ export class Service {
 
       let kc = new KadContent(
         id,
-        Date.now(),
+        timestamp,
         c.pubKey,
-        b.toArrayBuffer(),
+        encodedPayload.buffer,
         null
       );
 
@@ -1050,6 +1101,17 @@ export class Service {
   getChannelById(id: number): any {
     for (let c of this.channels) {
       if (c.id == id) {
+        return c;
+      }
+    }
+    return null;
+  }
+
+  getChannelByDhtPublicKey(pubkey: ArrayBuffer): any {
+    console.log("eqlsllslsls");
+    for (let c of this.channels) {
+      // console.log("eqls? : " + pubkey + " " + c.pubKey);
+      if (Utils.arrayBuffersAreEqual(c.pubKey, pubkey)) {
         return c;
       }
     }
