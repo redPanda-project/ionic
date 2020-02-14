@@ -1,3 +1,6 @@
+# DEPRECATED
+This application will be replaced by a flutter app: https://github.com/redPanda-project/app
+
 # ionic
 Ionic android/iOS application 
 (windows/linux app via electron possible)
